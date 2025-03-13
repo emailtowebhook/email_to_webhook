@@ -2,7 +2,8 @@
 # MIT License
 # Copyright (c) 2023 [Your Name or Organization]
 # See LICENSE file for details
-
+ 
+ 
 # Define variables
 TF_COMMAND="terraform"
 
@@ -55,7 +56,6 @@ cd infra
 
 # Run terraform commands
 terraform init
-terraform plan
 terraform apply -auto-approve
 
 echo "Deployment complete."

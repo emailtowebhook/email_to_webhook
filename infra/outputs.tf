@@ -1,8 +1,5 @@
-output "lambda_function_arn" {
-  value = aws_lambda_function.email_parser_lambda.arn
-}
-
-
-output "s3_bucket_name" {
-  value = aws_s3_bucket.lambda_bucket.id
+# Output the API Gateway endpoint
+output "api_gateway_url" {
+  value       = "${aws_apigatewayv2_api.lambda_api.api_endpoint}/prod/v1/domain"
+  description = "API Gateway endpoint URL"
 }
