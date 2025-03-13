@@ -36,7 +36,23 @@ def lambda_handler(event, context):
         sender = msg['From']
         recipient = msg['To']
         subject = msg['Subject']
+        date = msg['Date']  # Extract email date/timestamp
+        message_id = msg['Message-ID']  # Extract unique message ID
+        cc = msg.get('Cc', '')  # Extract CC recipients
+        bcc = msg.get('Bcc', '')  # Extract BCC recipients
+        reply_to = msg.get('Reply-To', '')  # Extract Reply-To header
+        references = msg.get('References', '')  # Extract message references
+        in_reply_to = msg.get('In-Reply-To', '')  # Extract In-Reply-To header
+        importance = msg.get('Importance', '')  # Extract importance/priority
+        
+        # Extract custom headers if needed
+        custom_headers = {}
+        for header in msg.keys():
+            if header.lower().startswith('x-'):  # Most custom headers start with X-
+                custom_headers[header] = msg[header]
+                
         body = ""
+        html_body = ""  # Store HTML version separately
         attachments = []
 
         print(f"Sender: {sender}")
@@ -64,8 +80,10 @@ def lambda_handler(event, context):
 
                 if content_type == "text/plain":
                     body = part.get_payload(decode=True).decode(part.get_content_charset() or "utf-8")
-                elif content_type == "text/html" and not body:  # Use HTML if plain text is unavailable
-                    body = part.get_payload(decode=True).decode(part.get_content_charset() or "utf-8")
+                elif content_type == "text/html":
+                    html_body = part.get_payload(decode=True).decode(part.get_content_charset() or "utf-8")
+                    if not body:  # Use HTML as fallback if plain text is unavailable
+                        body = html_body
                 elif content_disposition and "attachment" in content_disposition:
                     # Process attachments
                     attachment_data = part.get_payload(decode=True)
@@ -105,17 +123,32 @@ def lambda_handler(event, context):
                     inline_image_url = f"https://{attachments_bucket_name}.s3.amazonaws.com/{inline_image_key}"
 
                     # Replace cid: references in the HTML body with the public URL
-                    if body:
-                        body = body.replace(f"cid:{content_id}", inline_image_url)
+                    if html_body:
+                        html_body = html_body.replace(f"cid:{content_id}", inline_image_url)
         else:
-            body = msg.get_payload(decode=True).decode(msg.get_content_charset() or "utf-8")
+            content_type = msg.get_content_type()
+            if content_type == "text/html":
+                html_body = msg.get_payload(decode=True).decode(msg.get_content_charset() or "utf-8")
+                body = html_body  # Use HTML as body if that's all we have
+            else:
+                body = msg.get_payload(decode=True).decode(msg.get_content_charset() or "utf-8")
 
         # Construct payload
         parsed_email = {
             "sender": sender,
             "recipient": recipient,
             "subject": subject,
+            "date": date,
+            "message_id": message_id,
+            "cc": cc,
+            "bcc": bcc,
+            "reply_to": reply_to,
+            "references": references,
+            "in_reply_to": in_reply_to,
+            "importance": importance,
+            "custom_headers": custom_headers,
             "body": body,
+            "html_body": html_body if html_body else None,  # Include HTML body if available
             "attachments": attachments
         }
 
