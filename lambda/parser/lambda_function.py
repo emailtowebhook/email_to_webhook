@@ -14,8 +14,6 @@ import re
 # Initialize clients
 s3_client = boto3.client('s3')
 
-# Get domain name from environment variable
-domain_name = os.environ.get('DOMAIN_NAME', 'emailtowebhook.com')
 attachments_bucket_name = os.environ.get('ATTACHMENTS_BUCKET_NAME', 'email-attachments-bucket-3rfrd')
 webhook_bucket_name = os.environ.get('WEBHOOKS_BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
 
@@ -83,11 +81,13 @@ def lambda_handler(event, context):
                         Key=attachment_key,
                         Body=attachment_data
                     )
+                    # Get regular S3 URL for the attachment
+                    s3_url = f"https://{attachments_bucket_name}.s3.amazonaws.com/{attachment_key}"
+                    print(f"S3 URL for attachment: {s3_url}")
 
-                    public_url = f"https://attachments.{domain_name}/{display_key}"
                     attachments.append({
                         "filename": attachment_name,
-                        "public_url": public_url,
+                        "public_url": s3_url,
                         "content_type": content_type
                     })
                 elif "Content-ID" in part and not content_disposition:  # Process inline images
