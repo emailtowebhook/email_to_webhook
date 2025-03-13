@@ -91,9 +91,7 @@ def lambda_handler(event, context):
 
                     # generate random guid and concatenate with attachment name
 
-                    display_key= f"{uuid.uuid4().hex}/{attachment_name}"
-
-                    attachment_key = f"attachments/{display_key}"
+                    attachment_key= f"{uuid.uuid4().hex}/{attachment_name}"
                     s3_client.put_object(
                         Bucket=attachments_bucket_name,
                         Key=attachment_key,
