@@ -31,7 +31,7 @@ fi
 echo "📋 Retrieving bucket information from variables.tf..."
 PARSER_BUCKET=$(grep -A2 "database_bucket_name" variables.tf | grep "default" | awk -F'"' '{print $2}')
 ATTACHMENTS_BUCKET=$(grep -A2 "attachments_bucket_name" variables.tf | grep "default" | awk -F'"' '{print $2}')
-emails_bucket=$(grep -A2 "s3_bucket" variables.tf | grep "default" | awk -F'"' '{print $2}')
+emails_bucket=$(grep -A2 "email_bucket_name" variables.tf | grep "default" | awk -F'"' '{print $2}')
 
 # Function to empty an S3 bucket safely
 empty_bucket() {
@@ -40,7 +40,7 @@ empty_bucket() {
     echo "⚠️  Skipping bucket cleanup. No bucket found in Terraform state."
   else
     echo "🗑️  Emptying bucket: $bucket_name"
-    aws s3 rm s3://$bucket_name --recursive || echo "⚠️  Warning: Failed to empty bucket $bucket_name"
+    aws s3 rb s3://$bucket_name --force || echo "⚠️  Warning: Failed to empty bucket $bucket_name"
   fi
 }
 

@@ -104,11 +104,11 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
           "s3:GetObject",
           "s3:PutObject"
         ]
-        Resource = [
-          "arn:aws:s3:::email-webhooks-bucket-3rfrd",
-          "arn:aws:s3:::email-webhooks-bucket-3rfrd/*",
-          "arn:aws:s3:::email-attachments-bucket-3rfrd/*"
-        ]
+          Resource = [
+            "arn:aws:s3:::${var.database_bucket_name}",
+            "arn:aws:s3:::${var.database_bucket_name}/*",
+            "arn:aws:s3:::${var.attachments_bucket_name}/*"
+          ]
       },
       # CloudWatch Logs Permissions
       {
@@ -142,7 +142,7 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
           "iam:ListAccessKeys"
         ]
         Resource = [
-          "arn:aws:iam::302835751737:user/smtp-*"
+          "arn:aws:iam::${var.aws_account_id}:user/smtp-*"
         ]
       },
       # Allow IAM policy attachment
@@ -152,7 +152,7 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
           "iam:AttachUserPolicy",
           "iam:PutUserPolicy"
         ]
-        Resource = "arn:aws:iam::302835751737:user/smtp-*"
+        Resource = "arn:aws:iam::${var.aws_account_id}:user/smtp-*"
       },
       # Allow IAM user management
       {
@@ -160,7 +160,7 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
         Action = [
           "iam:PassRole"
         ]
-        Resource = "arn:aws:iam::302835751737:role/verify-domain-lambda-role"
+        Resource = "arn:aws:iam::${var.aws_account_id}:role/verify-domain-lambda-role"
       },
       # Allow IAM GetUser permission
       {
@@ -440,7 +440,7 @@ resource "aws_iam_role_policy" "lambda_ses_smtp_policy" {
           "iam:ListAccessKeys"
         ]
         Resource = [
-          "arn:aws:iam::302835751737:user/smtp-*"
+          "arn:aws:iam::${var.aws_account_id}:user/smtp-*"
         ]
       },
       # Allow IAM policy attachment
@@ -450,7 +450,7 @@ resource "aws_iam_role_policy" "lambda_ses_smtp_policy" {
           "iam:AttachUserPolicy",
           "iam:PutUserPolicy"
         ]
-        Resource = "arn:aws:iam::302835751737:user/smtp-*"
+        Resource = "arn:aws:iam::${var.aws_account_id}:user/smtp-*"
       },
       # Allow IAM user management
       {
@@ -458,7 +458,7 @@ resource "aws_iam_role_policy" "lambda_ses_smtp_policy" {
         Action = [
           "iam:PassRole"
         ]
-        Resource = "arn:aws:iam::302835751737:role/verify-domain-lambda-role"
+        Resource = "arn:aws:iam::${var.aws_account_id}:role/verify-domain-lambda-role"
       },
       # Allow IAM GetUser permission
       {
