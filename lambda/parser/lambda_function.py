@@ -76,20 +76,23 @@ def lambda_handler(event, context):
         if msg.is_multipart():
             for part in msg.iter_parts():
                 content_type = part.get_content_type()
-                content_disposition = part.get_content_disposition()
+                content_disposition = str(part.get_content_disposition() or "").lower()
 
-                if content_type == "text/plain":
+                # Process text/plain body parts
+                if content_type == "text/plain" and "attachment" not in content_disposition and "inline" not in content_disposition:
                     body = part.get_payload(decode=True).decode(part.get_content_charset() or "utf-8")
-                elif content_type == "text/html":
+                
+                # Process text/html body parts
+                elif content_type == "text/html" and "attachment" not in content_disposition and "inline" not in content_disposition:
                     html_body = part.get_payload(decode=True).decode(part.get_content_charset() or "utf-8")
                     if not body:  # Use HTML as fallback if plain text is unavailable
                         body = html_body
+                
+                # Process attachments
                 elif content_disposition and "attachment" in content_disposition:
-                    # Process attachments
+                    # Process attachments (existing code)
                     attachment_data = part.get_payload(decode=True)
                     attachment_name = part.get_filename()
-
-                    # generate random guid and concatenate with attachment name
 
                     attachment_key= f"{uuid.uuid4().hex}/{attachment_name}"
                     s3_client.put_object(
@@ -106,23 +109,38 @@ def lambda_handler(event, context):
                         "public_url": s3_url,
                         "content_type": content_type
                     })
-                elif "Content-ID" in part and not content_disposition:  # Process inline images
-                    content_id = part['Content-ID'].strip('<>')
+                
+                # Process inline images - separate condition to ensure both are processed
+                if part.get("Content-ID") or ("inline" in content_disposition):
+                    content_id = part.get("Content-ID", "").strip('<>') or f"inline_{uuid.uuid4().hex}"
                     inline_image_data = part.get_payload(decode=True)
                     inline_image_name = part.get_filename() or f"inline_{content_id}.png"
 
-                    inline_image_key = f"inline_images/{inline_image_name}"
+                    inline_image_key = f"{uuid.uuid4().hex}/{inline_image_name}"
                     s3_client.put_object(
                         Bucket=attachments_bucket_name,
                         Key=inline_image_key,
-                        Body=inline_image_data
+                        Body=inline_image_data,
+                        ContentType=content_type
                     )
 
                     inline_image_url = f"https://{attachments_bucket_name}.s3.amazonaws.com/{inline_image_key}"
+                    print(f"Processed inline image: {content_id}, URL: {inline_image_url}")
 
-                    # Replace cid: references in the HTML body with the public URL
-                    if html_body:
-                        html_body = html_body.replace(f"cid:{content_id}", inline_image_url)
+                    # Add to attachments list with inline flag
+                    attachments.append({
+                        "filename": inline_image_name,
+                        "public_url": inline_image_url,
+                        "content_type": content_type,
+                        "inline": True,
+                        "content_id": content_id
+                    })
+
+            # Replace cid: references in the HTML body with the public URLs after processing all parts
+            if html_body:
+                for attachment in attachments:
+                    if attachment.get("inline") and attachment.get("content_id"):
+                        html_body = html_body.replace(f"cid:{attachment['content_id']}", attachment['public_url'])
         else:
             content_type = msg.get_content_type()
             if content_type == "text/html":
