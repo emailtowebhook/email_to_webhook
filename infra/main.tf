@@ -287,7 +287,6 @@ resource "aws_ses_receipt_rule" "catch_all_rule" {
   # Actions for the receipt rule
   s3_action {
     bucket_name      = aws_s3_bucket.emails_bucket.id
-    object_key_prefix = "emails/"
     position      = 1  # Position in the rule set
   }
 
