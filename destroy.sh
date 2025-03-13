@@ -29,9 +29,9 @@ fi
 
 # Get bucket names from Terraform state safely
 echo "📋 Retrieving bucket information from variables.tf..."
-PARSER_BUCKET=$(grep -A2 "webhooks_bucket_name" variables.tf | grep "default" | awk -F'"' '{print $2}')
+PARSER_BUCKET=$(grep -A2 "database_bucket_name" variables.tf | grep "default" | awk -F'"' '{print $2}')
 ATTACHMENTS_BUCKET=$(grep -A2 "attachments_bucket_name" variables.tf | grep "default" | awk -F'"' '{print $2}')
-LAMBDA_BUCKET=$(grep -A2 "s3_bucket" variables.tf | grep "default" | awk -F'"' '{print $2}')
+emails_bucket=$(grep -A2 "s3_bucket" variables.tf | grep "default" | awk -F'"' '{print $2}')
 
 # Function to empty an S3 bucket safely
 empty_bucket() {

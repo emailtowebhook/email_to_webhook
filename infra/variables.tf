@@ -19,20 +19,20 @@ variable "parser_lambda_file_path" {
 }
 
 
-variable "webhooks_bucket_name" {
+variable "database_bucket_name" {
   description = "The name of the S3 bucket for email webhooks"
-  default     = "email-webhooks-bucket-3rfrd"
+  default     = "email-to-webhook-database"
   type        = string
 }
 
-variable "s3_bucket" {
+variable "email_bucket_name" {
   description = "The name of s3 bucket for lambda deployment"
-  default = "my-lambda-deploy-bucket-4sdsd6thgr"
+  default = "email-to-webhook-emails"
 }
 
 variable "attachments_bucket_name" {
   description = "The name of the S3 bucket for email attachments"
-  default     = "email-attachments-bucket-3rfrd"
+  default     = "email-to-webhook-attachments"
   type        = string
 }
 

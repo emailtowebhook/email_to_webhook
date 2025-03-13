@@ -15,7 +15,7 @@ import re
 s3_client = boto3.client('s3')
 
 attachments_bucket_name = os.environ.get('ATTACHMENTS_BUCKET_NAME', 'email-attachments-bucket-3rfrd')
-webhook_bucket_name = os.environ.get('WEBHOOKS_BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
+webhook_bucket_name = os.environ.get('database_bucket_name', 'email-webhooks-bucket-3rfrd')
 
 def lambda_handler(event, context):
     # Parse the S3 event

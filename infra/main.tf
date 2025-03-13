@@ -1,6 +1,6 @@
 # S3 Bucket for Lambda Deployment Package
-resource "aws_s3_bucket" "lambda_bucket" {
-  bucket = var.s3_bucket
+resource "aws_s3_bucket" "emails_bucket" {
+  bucket = var.email_bucket_name
   force_destroy = true
  
 }
@@ -191,7 +191,7 @@ resource "aws_lambda_function" "verify_domain_lambda" {
 
   environment {
     variables = {
-      BUCKET_NAME = var.webhooks_bucket_name
+      BUCKET_NAME = var.database_bucket_name
     }
   }
 
@@ -211,28 +211,13 @@ resource "aws_apigatewayv2_integration" "lambda_integration" {
   integration_uri  = aws_lambda_function.verify_domain_lambda.arn
   payload_format_version = "2.0"
 }
-
-# API Gateway Route
-resource "aws_apigatewayv2_route" "lambda_route" {
-  api_id    = aws_apigatewayv2_api.lambda_api.id
-  route_key = "POST /domain11"
-  target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
-}
+ 
 
 # API Gateway Stage
 resource "aws_apigatewayv2_stage" "prod_stage" {
   api_id      = aws_apigatewayv2_api.lambda_api.id
   name        = "prod"
   auto_deploy = true
-}
-
-# Lambda Permission for API Gateway
-resource "aws_lambda_permission" "api_gateway_permission" {
-  statement_id  = "AllowAPIGatewayInvoke"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.my_lambda.function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.lambda_api.execution_arn}/prod/*"
 }
 
 ###########
@@ -268,7 +253,7 @@ resource "aws_ses_receipt_rule_set" "default_rule_set" {
 
 # S3 Bucket Policy to Allow SES Write Access
 resource "aws_s3_bucket_policy" "email_storage_policy" {
-  bucket = aws_s3_bucket.lambda_bucket.id
+  bucket = aws_s3_bucket.emails_bucket.id
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -279,7 +264,7 @@ resource "aws_s3_bucket_policy" "email_storage_policy" {
           Service = "ses.amazonaws.com"
         },
         Action    = "s3:PutObject",
-        Resource  = "${aws_s3_bucket.lambda_bucket.arn}/*",
+        Resource  = "${aws_s3_bucket.emails_bucket.arn}/*",
         Condition = {
           StringEquals = {
             "aws:Referer": var.aws_account_id
@@ -301,7 +286,7 @@ resource "aws_ses_receipt_rule" "catch_all_rule" {
 
   # Actions for the receipt rule
   s3_action {
-    bucket_name      = aws_s3_bucket.lambda_bucket.id
+    bucket_name      = aws_s3_bucket.emails_bucket.id
     object_key_prefix = "emails/"
     position      = 1  # Position in the rule set
   }
@@ -309,7 +294,7 @@ resource "aws_ses_receipt_rule" "catch_all_rule" {
   # Enable email scanning for spam/viruses
   scan_enabled = true
 
-  depends_on = [aws_s3_bucket_policy.email_storage_policy, aws_s3_bucket.lambda_bucket , aws_ses_receipt_rule_set.default_rule_set]
+  depends_on = [aws_s3_bucket_policy.email_storage_policy, aws_s3_bucket.emails_bucket , aws_ses_receipt_rule_set.default_rule_set]
 }
 
 # Activate the Rule Set
@@ -319,7 +304,7 @@ resource "aws_ses_active_receipt_rule_set" "activate_rule_set" {
 }
 
 resource "aws_s3_bucket" "email_urls_bucket" {
-  bucket = var.webhooks_bucket_name
+  bucket = var.database_bucket_name
 }
 
 resource "aws_s3_bucket_ownership_controls" "email_urls_bucket_ownership" {
@@ -380,7 +365,7 @@ resource "aws_lambda_function" "my_lambda" {
 
   environment {
     variables = {
-      WEBHOOKS_BUCKET_NAME = var.webhooks_bucket_name
+      database_bucket_name = var.database_bucket_name
       ATTACHMENTS_BUCKET_NAME = var.attachments_bucket_name
     }
   }
@@ -418,8 +403,8 @@ resource "aws_iam_role_policy" "lambda_ses_smtp_policy" {
           "s3:PutObject"
         ]
         Resource = [
-          "arn:aws:s3:::${var.webhooks_bucket_name}",
-          "arn:aws:s3:::${var.webhooks_bucket_name}/*",
+          "arn:aws:s3:::${var.database_bucket_name}",
+          "arn:aws:s3:::${var.database_bucket_name}/*",
           "arn:aws:s3:::${var.attachments_bucket_name}/*"
         ]
       },
@@ -494,7 +479,7 @@ resource "aws_iam_policy_attachment" "lambda_policy_attachment" {
 }
 
 resource "aws_s3_bucket_notification" "bucket_notification" {
-  bucket = aws_s3_bucket.lambda_bucket.bucket
+  bucket = aws_s3_bucket.emails_bucket.bucket
 
   lambda_function {
     lambda_function_arn = aws_lambda_function.my_lambda.arn
@@ -509,7 +494,7 @@ resource "aws_lambda_permission" "allow_s3_to_invoke" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.my_lambda.function_name
   principal     = "s3.amazonaws.com"
-  source_arn    = aws_s3_bucket.lambda_bucket.arn
+  source_arn    = aws_s3_bucket.emails_bucket.arn
 }
 
 # Add this new resource to attach S3 read permissions to the role
@@ -526,8 +511,8 @@ resource "aws_iam_role_policy" "lambda_s3_policy" {
         ],
         Effect   = "Allow",
         Resource = [
-          "arn:aws:s3:::my-lambda-deploy-bucket-4sdsd6thgr",
-          "arn:aws:s3:::my-lambda-deploy-bucket-4sdsd6thgr/*"
+          "${aws_s3_bucket.emails_bucket.arn}",
+          "${aws_s3_bucket.emails_bucket.arn}/*"
         ]
       }
     ]
