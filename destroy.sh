@@ -46,7 +46,8 @@ empty_bucket() {
 
 # Empty buckets if they exist
 empty_bucket "$PARSER_BUCKET"
-empty_bucket "$CHECK_BUCKET"
+empty_bucket "$emails_bucket"
+empty_bucket "$ATTACHMENTS_BUCKET"
 
 # Run terraform destroy
 echo "💥 Running terraform destroy..."
