@@ -94,7 +94,7 @@ After deployment, you can use the API to register domains and their correspondin
 ### Register a Domain with a Webhook
 
 ```bash
-curl -X POST '<api_gateway_url>/v1/domain' \
+curl -X POST '<api_gateway_url>' \
 -H 'Content-Type: application/json' \
 -d '{
 "domain": "yourdomain.com",
