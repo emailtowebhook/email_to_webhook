@@ -288,7 +288,7 @@ resource "aws_ses_receipt_rule" "catch_all_rule" {
   s3_action {
     bucket_name      = aws_s3_bucket.emails_bucket.id
     position      = 1  # Position in the rule set
-  }
+   }
 
   # Enable email scanning for spam/viruses
   scan_enabled = true
@@ -302,30 +302,30 @@ resource "aws_ses_active_receipt_rule_set" "activate_rule_set" {
 
 }
 
-resource "aws_s3_bucket" "email_urls_bucket" {
+resource "aws_s3_bucket" "kv_database_bucket" {
   bucket = var.database_bucket_name
 }
 
-resource "aws_s3_bucket_ownership_controls" "email_urls_bucket_ownership" {
-  bucket = aws_s3_bucket.email_urls_bucket.id
+resource "aws_s3_bucket_ownership_controls" "kv_database_bucket_ownership" {
+  bucket = aws_s3_bucket.kv_database_bucket.id
   rule {
     object_ownership = "BucketOwnerPreferred"
   }
 }
 
-resource "aws_s3_bucket_acl" "email_urls_bucket_acl" {
-  depends_on = [aws_s3_bucket_ownership_controls.email_urls_bucket_ownership]
-  bucket = aws_s3_bucket.email_urls_bucket.id
+resource "aws_s3_bucket_acl" "kv_database_bucket_acl" {
+  depends_on = [aws_s3_bucket_ownership_controls.kv_database_bucket_ownership]
+  bucket = aws_s3_bucket.kv_database_bucket.id
   acl    = "private"
 }
 
-resource "aws_s3_bucket" "email_attachments_bucket" {
+resource "aws_s3_bucket" "attachments_bucket" {
   bucket = var.attachments_bucket_name
 }
 
 # Configure public access block to allow public policies
 resource "aws_s3_bucket_public_access_block" "public_access_block" {
-  bucket                  = aws_s3_bucket.email_attachments_bucket.id
+  bucket                  = aws_s3_bucket.attachments_bucket.id
   block_public_acls       = false
   block_public_policy     = false  # Allow bucket policies to enable public access
   ignore_public_acls      = false
@@ -333,7 +333,7 @@ resource "aws_s3_bucket_public_access_block" "public_access_block" {
 }
 # Add a bucket policy to allow public read access
 resource "aws_s3_bucket_policy" "public_access_policy" {
-  bucket = aws_s3_bucket.email_attachments_bucket.id
+  bucket = aws_s3_bucket.attachments_bucket.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -343,7 +343,7 @@ resource "aws_s3_bucket_policy" "public_access_policy" {
         Effect    = "Allow"
         Principal = "*"
         Action    = "s3:GetObject"
-        Resource  = "${aws_s3_bucket.email_attachments_bucket.arn}/*"
+        Resource  = "${aws_s3_bucket.attachments_bucket.arn}/*"
       }
     ]
   })

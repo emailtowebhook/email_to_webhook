@@ -20,8 +20,8 @@ variable "parser_lambda_file_path" {
 
 
 variable "database_bucket_name" {
-  description = "The name of the S3 bucket for email webhooks"
-  default     = "email-to-webhook-database"
+  description = "The name of the S3 bucket for email webhooks, act as KV store"
+  default     = "email-to-webhook-kv-database"
   type        = string
 }
 

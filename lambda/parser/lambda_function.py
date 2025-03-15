@@ -31,8 +31,14 @@ def lambda_handler(event, context):
         print(f"Email content: {raw_email}")
         # Parse the email
         msg = BytesParser(policy=policy.default).parsebytes(raw_email)
-
-        # Extract email details
+       
+        # Retrieve webhook URL for the domain from the S3 bucket
+        # Extract domain from recipient email using regex
+        pattern = r"by ([\w\.-]+) with SMTP id ([\w\d]+).*?for ([\w@\.-]+);"
+        match = re.search(pattern, msg['Received'], re.DOTALL)
+        webhook_key = match.group(3).split('@')[1] if match else recipient.split('@')[-1].strip('>')
+     
+        received_from = match.group(3) if match else None
         sender = msg['From']
         recipient = msg['To']
         subject = msg['Subject']
@@ -57,9 +63,7 @@ def lambda_handler(event, context):
 
         print(f"Sender: {sender}")
         print(f"Recipient: {recipient}")
-        # Retrieve webhook URL for the domain from the S3 bucket
-        # Extract domain from recipient email using regex
-        webhook_key = recipient.split('@')[-1].strip('>')
+       
         print(f"Webhook key: {webhook_key}")
         try:
             webhook_response = s3_client.get_object(Bucket=webhook_bucket_name, Key=webhook_key)
@@ -152,6 +156,7 @@ def lambda_handler(event, context):
         # Construct payload
         parsed_email = {
             "email_id": email_object_key,
+            "received_from": received_from,
             "sender": sender,
             "recipient": recipient,
             "subject": subject,
