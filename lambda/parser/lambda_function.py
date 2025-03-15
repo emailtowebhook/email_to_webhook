@@ -15,7 +15,7 @@ import re
 s3_client = boto3.client('s3')
 
 attachments_bucket_name = os.environ.get('ATTACHMENTS_BUCKET_NAME', 'email-attachments-bucket-3rfrd')
-webhook_bucket_name = os.environ.get('database_bucket_name', 'email-webhooks-bucket-3rfrd')
+kv_database_bucket_name = os.environ.get('database_bucket_name', 'email-webhooks-bucket-3rfrd')
 
 def lambda_handler(event, context):
     # Parse the S3 event
@@ -36,7 +36,7 @@ def lambda_handler(event, context):
         # Extract domain from recipient email using regex
         pattern = r"by ([\w\.-]+) with SMTP id ([\w\d]+).*?for ([\w@\.-]+);"
         match = re.search(pattern, msg['Received'], re.DOTALL)
-        webhook_key = match.group(3).split('@')[1] if match else recipient.split('@')[-1].strip('>')
+        kv_key = match.group(3).split('@')[1] if match else recipient.split('@')[-1].strip('>')
      
         received_from = match.group(3) if match else None
         sender = msg['From']
@@ -64,16 +64,16 @@ def lambda_handler(event, context):
         print(f"Sender: {sender}")
         print(f"Recipient: {recipient}")
        
-        print(f"Webhook key: {webhook_key}")
+        print(f"Webhook key: {kv_key}")
         try:
-            webhook_response = s3_client.get_object(Bucket=webhook_bucket_name, Key=webhook_key)
-            webhook_data = json.loads(webhook_response['Body'].read())
-            webhook_url = webhook_data['webhook']
+            kv_response = s3_client.get_object(Bucket=kv_database_bucket_name, Key=kv_key)
+            kv_data = json.loads(kv_response['Body'].read())
+            webhook_url = kv_data['webhook']
         except Exception as e:
-            print(f"Error retrieving webhook for domain {webhook_key}: {e}")
+            print(f"Error retrieving webhook for domain {kv_key}: {e}")
             return {
                 'statusCode': 500,
-                'body': f"Webhook for domain {webhook_key} not found or error occurred."
+                'body': f"Webhook for domain {kv_key} not found or error occurred."
             }
 
         # Extract email body and attachments
