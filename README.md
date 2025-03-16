@@ -1,4 +1,4 @@
-# 🚀 Email to Webhook Service
+# Open-Source Email to Webhook Service
 
 An open-source solution that seamlessly transforms incoming emails into webhook notifications. Perfect for automated workflows, real-time email processing, and integration with external services.
 
