@@ -232,7 +232,7 @@ resource "aws_apigatewayv2_integration" "verify_lambda_integration" {
 # API Gateway Route
 resource "aws_apigatewayv2_route" "verify_lambda_route" {
   api_id    = aws_apigatewayv2_api.lambda_api.id
-  route_key = "POST /v1/domain"
+  route_key = "POST /v1/register"
   target    = "integrations/${aws_apigatewayv2_integration. verify_lambda_integration.id}"
 }
 
