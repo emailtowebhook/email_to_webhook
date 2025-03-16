@@ -123,6 +123,8 @@ curl -X POST '<api_gateway_url>' \
   }'
 ```
 
+After registering, you will receive two DNS records that need to be set up in your DNS manager. Once configured, you can start sending emails to your registered domain.
+
 ---
 
 ## 👋 Connect with Me
