@@ -130,7 +130,7 @@ After registering, you will receive two DNS records that need to be set up in yo
 ## 👋 Connect with Me
 
 💼 **LinkedIn**: [Yakir Perlin](https://www.linkedin.com/in/yakirperlin/)  
-🐦 **Twitter**: [@yakirbipbip](https://x.com/yakirbipbip)
+𝕏 **X**: [@yakirbipbip](https://x.com/yakirbipbip)
 
 ---
 

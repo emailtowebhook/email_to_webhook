@@ -1,5 +1,13 @@
 provider "aws" {
   region = var.aws_region
+
+  default_tags {
+    tags = {
+      Environment = "production"
+      Project     = "email-to-webhook"
+      ManagedBy   = "terraform"
+    }
+  }
 }
 
 terraform {
@@ -10,3 +18,4 @@ terraform {
     encrypt        = true # Enable server-side encryption
   }
 }
+ 
