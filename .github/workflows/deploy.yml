@@ -42,7 +42,7 @@ jobs:
       - name: Terraform Apply
         run: |
           cd infra
-          terraform apply -auto-approve
+          terraform apply -var="aws_account_id=${{ secrets.AWS_ACCOUNT_ID }}" -auto-approve
 
       - name: Clean up Lambda packages
         run: |
