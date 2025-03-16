@@ -1,22 +1,27 @@
 variable "aws_region" {
   default = "us-east-1"
+  type = string
 }
 
 variable "aws_account_id" {
   description = "The AWS account ID"
   default = "302835751737"
+  type = string
 }
 
 
 variable "verify_lambda_file_path" {
   description = "The path to the DNS lambda file"
   default = "../lambda_packages/check.zip"
+  type = string
 }
 
 variable "parser_lambda_file_path" {
   description = "The path to the parser lambda file"
   default = "../lambda_packages/parser.zip"
+  type = string
 }
+
 
 
 variable "database_bucket_name" {
@@ -28,6 +33,7 @@ variable "database_bucket_name" {
 variable "email_bucket_name" {
   description = "The name of s3 bucket for lambda deployment"
   default = "email-to-webhook-emails"
+  type = string
 }
 
 variable "attachments_bucket_name" {
