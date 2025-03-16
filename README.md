@@ -1,114 +1,141 @@
-# Email to Webhook Service
+# 🚀 Email to Webhook Service
 
-An open source solution that parses and forwards incoming emails to webhooks. This service allows you to register domains and receive email content via webhook notifications, with support for attachments and inline images.
+An open-source solution that seamlessly transforms incoming emails into webhook notifications. Perfect for automated workflows, real-time email processing, and integration with external services.
 
-## Key Features
+## ✨ Features
 
-- **Domain Registration**: Register your domains and associate them with webhook endpoints
-- **Email Forwarding**: Automatically process incoming emails and forward content to registered webhooks
-- **Attachment Handling**: Store email attachments in S3 and provide public URLs
-- **DNS Configuration**: Automated DNS verification for SES domain setup
-- **Serverless Architecture**: Built for scale and security
+🔹 **Domain Registration** – Easily register domains and link them to webhook endpoints.  
+🔹 **Email Forwarding** – Automatically process and forward incoming emails to registered webhooks.  
+🔹 **Attachment Handling** – Store attachments in Amazon S3 and generate accessible public URLs.  
+🔹 **DNS Configuration** – Automates DNS verification for SES domain setup.  
+🔹 **Serverless Architecture** – Built for scale, security, and cost efficiency.
 
-## Deployment Instructions
+---
 
-Run the deployment script from the root directory:
+## 🚀 Quick Deployment
 
-```
+Deploy the service with a single command from the root directory:
+
+```sh
 ./deploy.sh
 ```
 
-## Prerequisites
+---
 
-Before you begin, ensure you have the following tools installed:
+## 🔧 Prerequisites
 
-1. **AWS CLI** - The AWS Command Line Interface is required for authentication and interaction with AWS services.
+Before you start, ensure you have the following tools installed:
 
-   ```
-   # Install AWS CLI on Linux/macOS
-   curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-   unzip awscliv2.zip
-   sudo ./aws/install
+### 🛠 1. AWS CLI
 
-   # Install AWS CLI on Windows
-   # Download the installer from: https://awscli.amazonaws.com/AWSCLIV2.msi
-   ```
+Used for authentication and interaction with AWS services.
 
-   Configure AWS CLI with your credentials:
+#### Install AWS CLI:
 
-   ```
-   aws configure
-   ```
+```sh
+# Linux/macOS
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
 
-2. **Terraform** - Infrastructure as Code tool used to provision and manage AWS resources.
-
-   ```
-   # Install Terraform on Linux
-   wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg
-   echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-   sudo apt update && sudo apt install terraform
-
-   # Install Terraform on macOS
-   brew tap hashicorp/tap
-   brew install hashicorp/tap/terraform
-
-   # Install Terraform on Windows
-   # Download from: https://developer.hashicorp.com/terraform/downloads
-   ```
-
-   Verify installation:
-
-   ```
-   terraform --version
-   ```
-
-3. **S3 Bucket for Terraform State** - Create an S3 bucket to store Terraform state files.
-
-   ```
-   # Create an S3 bucket for Terraform state
-   aws s3 mb s3://my-terraform-state-bucket-name --region us-east-1
-   ```
-
-   Then configure your Terraform backend in `provider.tf`:
-
-   ```hcl
-   terraform {
-     backend "s3" {
-       bucket = "my-terraform-state-bucket-name"
-       key    = "terraform.tfstate"
-       region = "us-east-1"
-     }
-   }
-
-   provider "aws" {
-     region = var.aws_region
-   }
-   ```
-
-   Make sure to replace `my-terraform-state-bucket-name` with your actual bucket name.
-
-## Using the API
-
-After deployment, you can use the API to register domains and their corresponding webhooks:
-
-### Register a Domain with a Webhook
-
-```bash
-curl -X POST '<api_gateway_url>' \
--H 'Content-Type: application/json' \
--d '{
-"domain": "yourdomain.com",
-"webhook": "https://your-webhook-endpoint.com/path"
-}'
+# Windows
+# Download the installer: https://awscli.amazonaws.com/AWSCLIV2.msi
 ```
 
-## Contact
+#### Configure AWS CLI:
 
-Feel free to connect with me:
+```sh
+aws configure
+```
 
-- LinkedIn: [Yakir Perlin](https://www.linkedin.com/in/yakirperlin/)
-- Twitter: [@yakirbipbip](https://x.com/yakirbipbip)
+---
 
-## License
+### 🏗 2. Terraform
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Infrastructure-as-Code tool for provisioning AWS resources.
+
+#### Install Terraform:
+
+```sh
+# Linux
+wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+sudo apt update && sudo apt install terraform
+
+# macOS
+brew tap hashicorp/tap
+brew install hashicorp/tap/terraform
+
+# Windows
+# Download: https://developer.hashicorp.com/terraform/downloads
+```
+
+#### Verify installation:
+
+```sh
+terraform --version
+```
+
+---
+
+### 📂 3. S3 Bucket for Terraform State
+
+Terraform requires an S3 bucket to store state files.
+
+#### Create an S3 bucket:
+
+```sh
+aws s3 mb s3://my-terraform-state-bucket --region us-east-1
+```
+
+#### Configure Terraform backend in `provider.tf`:
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket = "my-terraform-state-bucket"
+    key    = "terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+```
+
+Replace `my-terraform-state-bucket` with your actual bucket name.
+
+---
+
+## 🚀 Using the API
+
+Once deployed, use the API to register domains and their corresponding webhooks.
+
+### Register a Domain & Webhook
+
+```sh
+curl -X POST '<api_gateway_url>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "domain": "yourdomain.com",
+    "webhook": "https://your-webhook-endpoint.com/path"
+  }'
+```
+
+---
+
+## 👋 Connect with Me
+
+💼 **LinkedIn**: [Yakir Perlin](https://www.linkedin.com/in/yakirperlin/)  
+🐦 **Twitter**: [@yakirbipbip](https://x.com/yakirbipbip)
+
+---
+
+## 📜 License
+
+Licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+
+---
+
+💡 **Have questions or ideas?** Open an issue or start a discussion on [GitHub](https://github.com/emailtowebhook/emailtowebhook/issues)
