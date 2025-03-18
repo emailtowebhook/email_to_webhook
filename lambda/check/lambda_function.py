@@ -160,6 +160,9 @@ def delete_domain(domain):
 
 def lambda_handler(event, context):
     try:
+        # Log the incoming event for debugging
+        print("Received event:", json.dumps(event, indent=2))
+        
         # Check if this is a DELETE request
         if event.get('httpMethod') == 'DELETE':
             # For DELETE requests, extract domain from request body
