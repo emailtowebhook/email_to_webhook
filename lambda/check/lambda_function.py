@@ -135,8 +135,71 @@ def is_valid_webhook(webhook):
     pattern = r'^https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+(?::\d+)?(?:/[-\w%!$&\'()*+,;=:@/~]+)*(?:\?[-\w%!$&\'()*+,;=:@/~]*)?(?:#[-\w%!$&\'()*+,;=:@/~]*)?$'
     return bool(re.match(pattern, webhook))
 
+def delete_domain(domain):
+    """Delete domain from S3 and SES."""
+    # Initialize clients
+    s3 = boto3.client('s3')
+    
+    try:
+        # Delete from S3
+        bucket_name = os.environ.get('BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
+        s3.delete_object(
+            Bucket=bucket_name,
+            Key=domain
+        )
+        
+        # Delete from SES
+        ses_client.delete_identity(
+            Identity=domain
+        )
+        
+        return True
+    except Exception as e:
+        print(f"Error deleting domain {domain}: {str(e)}")
+        raise e
+
 def lambda_handler(event, context):
     try:
+        # Check if this is a DELETE request
+        if event.get('httpMethod') == 'DELETE':
+            # For DELETE requests, extract domain from request body
+            body = json.loads(event['body'])
+            domain = body.get('domain')
+            
+            if not domain:
+                return {
+                    "headers": {
+                        "Content-Type": "application/json"
+                    },
+                    "statusCode": 400,
+                    "body": json.dumps({"error": "Domain is required"})
+                }
+            
+            # Validate domain format
+            if not is_valid_domain(domain):
+                return {
+                    "headers": {
+                        "Content-Type": "application/json"
+                    },
+                    "statusCode": 400,
+                    "body": json.dumps({"error": "Invalid domain format"})
+                }
+            
+            # Delete domain from S3 and SES
+            delete_domain(domain)
+            
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Content-Type": "application/json"
+                },
+                "body": json.dumps({
+                    "message": f"Domain {domain} deleted successfully",
+                    "domain": domain
+                })
+            }
+        
+        # Existing POST/PUT handling for creating/updating domains
         # Parse input for the domain name
         body = json.loads(event['body'])
         user_domain = body.get('domain')

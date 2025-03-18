@@ -236,6 +236,13 @@ resource "aws_apigatewayv2_route" "verify_lambda_route" {
   target    = "integrations/${aws_apigatewayv2_integration. verify_lambda_integration.id}"
 }
 
+# API Gateway DELETE Route for domain removal
+resource "aws_apigatewayv2_route" "delete_domain_route" {
+  api_id    = aws_apigatewayv2_api.lambda_api.id
+  route_key = "DELETE /v1/register"
+  target    = "integrations/${aws_apigatewayv2_integration.verify_lambda_integration.id}"
+}
+
 # Lambda Permission for API Gateway
 resource "aws_lambda_permission" "verify_api_gateway_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
