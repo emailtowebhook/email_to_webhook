@@ -164,7 +164,7 @@ def lambda_handler(event, context):
         print("Received event:",event)
         
         # Check if this is a DELETE request
-        if event['http']['method'] == 'DELETE':
+        if event['requestContext']['http']['method'] == 'DELETE':
             # For DELETE requests, extract domain from request body
             body = json.loads(event['body'])
             domain = body.get('domain')
