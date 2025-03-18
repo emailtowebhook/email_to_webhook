@@ -92,7 +92,8 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
-          "s3:PutObject"
+          "s3:PutObject",
+          "s3:DeleteObject"
         ],
         Resource = "*"
       },
@@ -102,7 +103,8 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
         Action = [
           "s3:ListBucket",
           "s3:GetObject",
-          "s3:PutObject"
+          "s3:PutObject",
+          "s3:DeleteObject"
         ]
           Resource = [
             "arn:aws:s3:::${var.database_bucket_name}",
