@@ -156,7 +156,8 @@ def lambda_handler(event, context):
         # Construct payload
         parsed_email = {
             "email_id": email_object_key,
-            "received_from": received_from,
+            "domain": received_from,
+            "local_part": received_from.split('@')[0],
             "sender": sender,
             "recipient": recipient,
             "subject": subject,
