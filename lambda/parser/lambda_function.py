@@ -11,11 +11,71 @@ import requests  # For HTTP POST requests
 import uuid
 import os
 import re
+import psycopg2
+from datetime import datetime
+
 # Initialize clients
 s3_client = boto3.client('s3')
 
 attachments_bucket_name = os.environ.get('ATTACHMENTS_BUCKET_NAME', 'email-attachments-bucket-3rfrd')
-kv_database_bucket_name = os.environ.get('database_bucket_name', 'email-webhooks-bucket-3rfrd')
+kv_database_bucket_name = os.environ.get('DATABASE_BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
+
+def save_email_to_database(email_data):
+    """
+    Save parsed email to PostgreSQL database if DB_CONNECTION_STRING environment variable exists
+    
+    Args:
+        email_data (dict): Dictionary containing:
+            - domain: The domain part of the recipient address
+            - local_part: The local part of the recipient address
+            - email_id: Full email address identifier
+            - raw_email: The complete email object to store as JSON in email_data
+    """
+    # Check if database connection string exists
+    db_connection_string = os.environ.get('DB_CONNECTION_STRING')
+    
+    if not db_connection_string or db_connection_string == "":
+        print("Database connection string not found, skipping database save")
+        return
+    
+    try:
+        # Connect to PostgreSQL
+        conn = psycopg2.connect(db_connection_string)
+        cursor = conn.cursor()
+     
+        # Prepare SQL query - let PostgreSQL handle id and createdAt with their defaults
+        query = """
+        INSERT INTO "ParsedEmail" (
+            domain, local_part, email_id, email_data
+        ) VALUES (%s, %s, %s, %s)
+        """
+        
+        # Execute query with parameters
+        cursor.execute(
+            query,
+            (
+                email_data['domain'],
+                email_data['local_part'],
+                email_data['email_id'],
+                json.dumps(email_data)  # Convert to JSON string for PostgreSQL JSON type
+            )
+        )
+        
+        # Commit the transaction
+        conn.commit()
+        
+        print(f"Email {email_data['email_id']} saved to database successfully")
+        
+    except Exception as e:
+        print(f"Failed to save email to database: {e}")
+        # You might want to handle specific exceptions based on your requirements
+    
+    finally:
+        # Close cursor and connection
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'conn' in locals() and conn:
+            conn.close()
 
 def lambda_handler(event, context):
     # Parse the S3 event
@@ -180,6 +240,7 @@ def lambda_handler(event, context):
             response = requests.post(webhook_url, json=parsed_email, timeout=10)
             response.raise_for_status()
             print(f"Data sent to webhook {webhook_url} successfully.")
+            save_email_to_database(parsed_email)
         except requests.exceptions.RequestException as e:
             print(f"Error sending data to webhook {webhook_url}: {e}")
             return {

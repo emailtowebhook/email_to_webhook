@@ -41,6 +41,13 @@ variable "attachments_bucket_name" {
   type        = string
 }
 
+variable "db_connection_string" {
+  description = "The PostgreSQL database connection string for email storage"
+  default     = ""
+  type        = string
+}
+
+
 
  
 

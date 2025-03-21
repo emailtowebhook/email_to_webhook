@@ -373,8 +373,9 @@ resource "aws_lambda_function" "my_lambda" {
 
   environment {
     variables = {
-      database_bucket_name = var.database_bucket_name
+      DATABASE_BUCKET_NAME = var.database_bucket_name
       ATTACHMENTS_BUCKET_NAME = var.attachments_bucket_name
+      DB_CONNECTION_STRING = var.db_connection_string
     }
   }
 }
