@@ -245,6 +245,20 @@ resource "aws_apigatewayv2_route" "delete_domain_route" {
   target    = "integrations/${aws_apigatewayv2_integration.verify_lambda_integration.id}"
 }
 
+# API Gateway PUT Route for updating domain data
+resource "aws_apigatewayv2_route" "update_domain_route" {
+  api_id    = aws_apigatewayv2_api.lambda_api.id
+  route_key = "PUT /v1/register/{domain}"
+  target    = "integrations/${aws_apigatewayv2_integration.verify_lambda_integration.id}"
+}
+
+# API Gateway GET Route for retrieving domain status and data
+resource "aws_apigatewayv2_route" "get_domain_route" {
+  api_id    = aws_apigatewayv2_api.lambda_api.id
+  route_key = "GET /v1/register/{domain}"
+  target    = "integrations/${aws_apigatewayv2_integration.verify_lambda_integration.id}"
+}
+
 # Lambda Permission for API Gateway
 resource "aws_lambda_permission" "verify_api_gateway_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
