@@ -46,14 +46,15 @@ def save_email_to_database(email_data):
         # Prepare SQL query - let PostgreSQL handle id and createdAt with their defaults
         query = """
         INSERT INTO "ParsedEmail" (
-            domain, local_part, email_id, email_data
-        ) VALUES (%s, %s, %s, %s)
+            id, domain, local_part, email_id, email_data
+        ) VALUES (%s, %s, %s, %s, %s)
         """
         
         # Execute query with parameters
         cursor.execute(
             query,
             (
+                f"email_{str(uuid.uuid4())}",  # Generate a unique ID with email_ prefix
                 email_data['domain'],
                 email_data['local_part'],
                 email_data['email_id'],
