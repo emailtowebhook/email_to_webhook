@@ -110,26 +110,7 @@ Replace `my-terraform-state-bucket` with your actual bucket name.
 
 ## 🚀 Using the API
 
-Once deployed, use the API to register domains and their corresponding webhooks.
-
-### Register a Domain & Webhook
-
-```sh
-curl -X POST '<api_gateway_url>' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "domain": "yourdomain.com",
-    "webhook": "https://your-webhook-endpoint.com/path"
-  }'
-```
-
-After registering, you will receive two DNS records that need to be set up in your DNS manager. Once configured, you can start sending emails to your registered domain.
-
----
-
-## 🔄 Using the Domain Management API
-
-Our API allows you to manage domain configurations for email webhook forwarding through simple RESTful endpoints.
+The API allows you to manage domain configurations for email webhook forwarding through simple RESTful endpoints.
 
 ### 1. Register a New Domain
 
