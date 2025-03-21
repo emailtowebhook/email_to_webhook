@@ -292,8 +292,6 @@ def lambda_handler(event, context):
                 }
             
             response_data = {
-                "domain": domain,
-                "webhook": s3_data.get("webhook"),
                 "status": status.lower(),
                 "dns_records": dns_records,
                 **s3_data
