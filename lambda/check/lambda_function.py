@@ -167,9 +167,14 @@ def lambda_handler(event, context):
         
         # Handle DELETE request
         if http_method == 'DELETE':
-            # For DELETE requests, extract domain from request body
-            body = json.loads(event['body'])
-            domain = body.get('domain')
+            # Extract domain from path parameters
+            path_params = event.get('pathParameters', {}) or {}
+            domain = path_params.get('domain')
+            
+            # If no domain in path, try to get it from body as fallback
+            if not domain:
+                body = json.loads(event.get('body') or '{}')
+                domain = body.get('domain')
             
             if not domain:
                 return {
@@ -177,7 +182,17 @@ def lambda_handler(event, context):
                         "Content-Type": "application/json"
                     },
                     "statusCode": 400,
-                    "body": json.dumps({"error": "Domain is required"})
+                    "body": json.dumps({"error": "Domain is required in the path"})
+                }
+            
+            # Validate domain format
+            if not is_valid_domain(domain):
+                return {
+                    "headers": {
+                        "Content-Type": "application/json"
+                    },
+                    "statusCode": 400,
+                    "body": json.dumps({"error": "Invalid domain format"})
                 }
             
             # Delete domain from S3 and SES
@@ -379,9 +394,17 @@ def lambda_handler(event, context):
             
         # Handle POST request (existing functionality)
         else:  # POST request
-            # Parse input for the domain name
+            # Extract domain from path parameters
+            path_params = event.get('pathParameters', {}) or {}
+            user_domain = path_params.get('domain')
+            
+            # Parse input from the request body
             body = json.loads(event['body'])
-            user_domain = body.get('domain')
+            
+            # If no domain in path, try to get it from body as fallback
+            if not user_domain and 'domain' in body:
+                user_domain = body.get('domain')
+            
             webhook = body.get('webhook')
 
             # Initialize S3 client
@@ -393,7 +416,7 @@ def lambda_handler(event, context):
                     "Content-Type": "application/json"
                     },
                     "statusCode": 400,
-                    "body": json.dumps({"error": "Domain is required"})
+                    "body": json.dumps({"error": "Domain is required in the path"})
                 }
             
             if not webhook:
