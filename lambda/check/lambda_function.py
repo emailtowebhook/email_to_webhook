@@ -143,19 +143,29 @@ def delete_domain(domain):
     try:
         # Delete from S3
         bucket_name = os.environ.get('BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
-         # Delete from SES
-        ses_client.delete_identity(
-            Identity=domain
-        )
         
-        s3.delete_object(
-            Bucket=bucket_name,
-            Key=domain
-        )
+        # Try to delete from SES
+        try:
+            ses_client.delete_identity(
+                Identity=domain
+            )
+        except Exception as ses_error:
+            print(f"Error deleting domain from SES {domain}: {str(ses_error)}")
+            # Continue with S3 deletion even if SES delete fails
+        
+        # Delete from S3
+        try:
+            s3.delete_object(
+                Bucket=bucket_name,
+                Key=domain
+            )
+        except Exception as s3_error:
+            print(f"Error deleting domain from S3 {domain}: {str(s3_error)}")
+            # Continue even if S3 delete fails
         
         return True
     except Exception as e:
-        print(f"Error deleting domain {domain}: {str(e)}")
+        print(f"Error in delete_domain operation for {domain}: {str(e)}")
         raise e
 
 def lambda_handler(event, context):
