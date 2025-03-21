@@ -254,7 +254,13 @@ def lambda_handler(event, context):
                 )
                 s3_data = json.loads(s3_response['Body'].read().decode('utf-8'))
             except s3.exceptions.NoSuchKey:
-                s3_data = {"webhook": None}
+                return {
+                    "headers": {
+                        "Content-Type": "application/json"
+                    },
+                    "statusCode": 404,
+                    "body": json.dumps({"error": f"Domain {domain} not found"})
+                }
             except Exception as e:
                 return {
                     "headers": {
