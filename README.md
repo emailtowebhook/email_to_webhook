@@ -127,6 +127,58 @@ After registering, you will receive two DNS records that need to be set up in yo
 
 ---
 
+## 🔄 Using the Domain Management API
+
+Our API allows you to manage domain configurations for email webhook forwarding through simple RESTful endpoints.
+
+### 1. Register a New Domain
+
+```sh
+curl -X POST '<api_gateway_url>/v1/domain/yourdomain.com' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "webhook": "https://your-webhook-endpoint.com/path"
+  }'
+```
+
+Upon successful registration, you'll receive DNS configuration instructions that need to be added to your domain's DNS settings.
+
+### 2. Get Domain Status
+
+Check the verification status and configuration details for a domain:
+
+```sh
+curl -X GET '<api_gateway_url>/v1/domain/yourdomain.com'
+```
+
+This returns information about your domain's verification status, DKIM setup, and webhook configuration.
+
+### 3. Update Domain Configuration
+
+Change the webhook URL or other configuration details:
+
+```sh
+curl -X PUT '<api_gateway_url>/v1/domain/yourdomain.com' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "webhook": "https://your-new-webhook-endpoint.com/path"
+  }'
+```
+
+### 4. Delete Domain Configuration
+
+Remove a domain from the system:
+
+```sh
+curl -X DELETE '<api_gateway_url>/v1/domain/yourdomain.com'
+```
+
+### Email Processing
+
+Once your domain is verified, any email sent to any address at your domain (e.g., `anything@yourdomain.com`) will be processed and forwarded to your registered webhook URL as a JSON payload with attachment links stored in S3.
+
+---
+
 ## 👋 Connect with Me
 
 💼 **LinkedIn**: [Yakir Perlin](https://www.linkedin.com/in/yakirperlin/)  
