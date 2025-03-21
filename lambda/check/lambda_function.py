@@ -214,8 +214,7 @@ def lambda_handler(event, context):
                     "Content-Type": "application/json"
                 },
                 "body": json.dumps({
-                    "message": f"Domain {domain} deleted successfully",
-                    "domain": domain
+                    "message": f"Domain {domain} deleted successfully"
                 })
             }
         
@@ -267,7 +266,7 @@ def lambda_handler(event, context):
             
                # Get domain verification status from SES
             status = check_verification_status(domain)
-            
+
             # Get verification token
             token = ""
             try:
