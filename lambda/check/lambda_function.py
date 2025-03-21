@@ -195,16 +195,6 @@ def lambda_handler(event, context):
                     "body": json.dumps({"error": "Domain is required in the path"})
                 }
             
-            # Validate domain format
-            if not is_valid_domain(domain):
-                return {
-                    "headers": {
-                        "Content-Type": "application/json"
-                    },
-                    "statusCode": 400,
-                    "body": json.dumps({"error": "Invalid domain format"})
-                }
-            
             # Delete domain from S3 and SES
             delete_domain(domain)
             
