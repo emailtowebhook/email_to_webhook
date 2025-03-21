@@ -243,22 +243,9 @@ def lambda_handler(event, context):
                     "body": json.dumps({"error": "Domain is required in the path"})
                 }
             
-            # Validate domain format
-            if not is_valid_domain(domain):
-                return {
-                    "headers": {
-                        "Content-Type": "application/json"
-                    },
-                    "statusCode": 400,
-                    "body": json.dumps({"error": "Invalid domain format"})
-                }
-            
             # Initialize S3 client
             s3 = boto3.client('s3')
             bucket_name = os.environ.get('BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
-            
-            # Get domain verification status from SES
-            status = check_verification_status(domain)
             
             # Get domain data from S3
             try:
@@ -277,6 +264,9 @@ def lambda_handler(event, context):
                     "statusCode": 500,
                     "body": json.dumps({"error": f"Error fetching S3 data: {str(e)}"})
                 }
+            
+               # Get domain verification status from SES
+            status = check_verification_status(domain)
             
             # Get verification token
             token = ""
