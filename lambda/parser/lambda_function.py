@@ -20,7 +20,7 @@ s3_client = boto3.client('s3')
 attachments_bucket_name = os.environ.get('ATTACHMENTS_BUCKET_NAME', 'email-attachments-bucket-3rfrd')
 kv_database_bucket_name = os.environ.get('DATABASE_BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
 
-def save_email_to_database(email_data):
+def save_email_to_database(email_data, webhook_url=None, webhook_response=None, webhook_status_code=None):
     """
     Save parsed email to PostgreSQL database if DB_CONNECTION_STRING environment variable exists
     
@@ -30,6 +30,9 @@ def save_email_to_database(email_data):
             - local_part: The local part of the recipient address
             - email_id: Full email address identifier
             - raw_email: The complete email object to store as JSON in email_data
+        webhook_url (str, optional): The webhook URL to send the email data to
+        webhook_response (str, optional): The response from the webhook
+        webhook_status_code (int, optional): The status code from the webhook
     """
     # Check if database connection string exists
     db_connection_string = os.environ.get('DB_CONNECTION_STRING')
@@ -46,9 +49,20 @@ def save_email_to_database(email_data):
         # Prepare SQL query - let PostgreSQL handle id and createdAt with their defaults
         query = """
         INSERT INTO "ParsedEmail" (
-            id, domain, local_part, email_id, email_data
-        ) VALUES (%s, %s, %s, %s, %s)
+            id, domain, 
+            local_part, 
+            email_id, 
+            email_data,
+            is_webhook_sent, 
+            webhook_url, 
+            webhook_payload, 
+            webhook_response, 
+            webhook_status_code
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
+        
+        # Determine if webhook was sent successfully
+        is_webhook_sent = True
         
         # Execute query with parameters
         cursor.execute(
@@ -58,7 +72,12 @@ def save_email_to_database(email_data):
                 email_data['domain'],
                 email_data['local_part'],
                 email_data['email_id'],
-                json.dumps(email_data)  # Convert to JSON string for PostgreSQL JSON type
+                json.dumps(email_data),  # Convert to JSON string for PostgreSQL JSON type
+                is_webhook_sent,  # is_webhook_sent based on status code
+                webhook_url,  # webhook_url
+                json.dumps({}),  # webhook_payload
+                webhook_response,  # webhook_response
+                webhook_status_code  # webhook_status_code
             )
         )
         
@@ -241,15 +260,31 @@ def lambda_handler(event, context):
             response = requests.post(webhook_url, json=parsed_email, timeout=10)
             response.raise_for_status()
             print(f"Data sent to webhook {webhook_url} successfully.")
-            save_email_to_database(parsed_email)
+            
+            # Call the updated function with successful webhook details
+            save_email_to_database(
+                parsed_email,
+                webhook_url=webhook_url,
+                webhook_response=response.text,
+                webhook_status_code=response.status_code
+            )
+            
         except requests.exceptions.RequestException as e:
             print(f"Error sending data to webhook {webhook_url}: {e}")
-            return {
-                'statusCode': 500,
-                'body': f"Error sending data to webhook {webhook_url}: {str(e)}"
-            }
+            
+            # Save to database with error information
+            save_email_to_database(
+                parsed_email,
+                webhook_url=webhook_url,
+                webhook_response=str(e),
+                webhook_status_code=getattr(e.response, 'status_code', 0) if hasattr(e, 'response') else 0
+            )
+            
+            # Log the error but don't return error status
+            print(f"Continuing despite webhook error: {str(e)}")
 
+    # Always return success, regardless of webhook outcome
     return {
         'statusCode': 200,
-        'body': "Email processed and data sent to webhook successfully."
+        'body': "Email processed successfully."
     }
