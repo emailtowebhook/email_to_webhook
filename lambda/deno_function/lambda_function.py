@@ -40,7 +40,7 @@ def save_domain_data(domain, data):
     try:
         s3_client.put_object(
             Bucket=DATABASE_BUCKET_NAME,
-            Key=f"{domain}.json",
+            Key=f"{domain}",
             Body=json.dumps(data),
             ContentType='application/json'
         )
