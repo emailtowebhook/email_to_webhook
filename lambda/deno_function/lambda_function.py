@@ -208,6 +208,9 @@ def handle_post_request(domain, body):
             
             return {
                 "statusCode": 200,
+                "headers": {
+                    "Content-Type": "application/json"
+                },
                 "body": json.dumps({
                     "message": f"Function {env} environment updated successfully",
                     "functions": domain_data["functions"]
