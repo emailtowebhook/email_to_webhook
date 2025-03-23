@@ -69,7 +69,7 @@ def create_deno_project(domain):
     
     return response.json()["id"]
 
-def create_deno_deployment(project_id, code, env="dev"):
+def create_deno_deployment(project_id, code, env="dev", domain=None):
     """
     Create a new Deno deployment with the provided code
     """
@@ -93,7 +93,7 @@ def create_deno_deployment(project_id, code, env="dev"):
             }
         },
         "envVars": {},
-        "description": f"{env.upper()} environment for {project_id}"
+        "description": f"{env.upper()} environment for {domain}"
     }
     
     response = requests.post(url, json=payload, headers=headers)
@@ -236,7 +236,7 @@ def get_deployment_code(project_id, deployment_id):
     # For simplicity, returning a placeholder
     return "// Code for this function is not directly accessible via API"
 
-def handle_post_request(domain, body):
+def handle_post_request(domain, body , project_id = None):
     """
     Handle POST request to create or update a function
     """
@@ -250,7 +250,8 @@ def handle_post_request(domain, body):
         # Check if function data exists
         if "functions" not in domain_data:
             # Create new project and deployments
-            project_id = create_deno_project(domain)
+            if project_id is None:
+                project_id = create_deno_project(domain)
             
             # Create dev deployment
             dev_deployment = create_deno_deployment(project_id, code, "dev")
@@ -288,7 +289,7 @@ def handle_post_request(domain, body):
                 }
             # Update existing function
             function_data = domain_data["functions"]
-            project_id = function_data["project_id"]
+            project_id =  function_data["project_id"] if project_id is None else project_id
             current_deployment_id = function_data[env]["id"]
             # Create new deployment for the specified environment
             if env == "dev" or env == "prod":
@@ -362,7 +363,6 @@ def handle_get_request(domain):
                 "error": str(e)
             })
         }
-
  
 def handle_put_request(domain, body):
     """
@@ -415,7 +415,12 @@ def lambda_handler(event, context):
         # Extract HTTP method and path parameters
         http_method = event.get("requestContext", {}).get("http", {}).get("method", "")
         domain = event.get("pathParameters", {}).get("domain", "")
+        # Extract project_id from query parameters if present
+        query_params = event.get("queryStringParameters", {}) or {}
+        project_id = query_params.get("project_id")
         
+        # Log extracted parameters for debugging
+        print(f"HTTP Method: {http_method}, Domain: {domain}, Project ID: {project_id}")
         # Ensure domain is provided
         if not domain:
             return {
