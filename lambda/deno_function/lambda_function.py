@@ -153,6 +153,9 @@ def handle_post_request(domain, body):
         # Get existing domain data
         domain_data = get_domain_data(domain)
         
+        code = body.get("code", "")
+        env = body.get("env", "dev").lower()  # Default to dev environment
+
         # Check if function data exists
         if "functions" not in domain_data:
             # Create new project and deployments
@@ -183,9 +186,7 @@ def handle_post_request(domain, body):
             }
         else:
         # Extract code and environment from request body
-            code = body.get("code", "")
-            env = body.get("env", "dev").lower()  # Default to dev environment
-
+           
             # Validate that code is provided
             if not code:
                 return {
