@@ -2,6 +2,7 @@
 # Copyright (c) 2023 [Your Name or Organization]
 # See LICENSE file for details
 
+from urllib import request
 import boto3
 import json
 import secrets
@@ -446,6 +447,13 @@ def lambda_handler(event, context):
             bucket_name = os.environ.get('BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
             key = user_domain
 
+            # if key exists, exit
+            if s3.get_object(Bucket=bucket_name, Key=key):
+                return {
+                    "statusCode": 200,
+                    "body": json.dumps({"message": "Domain already exists"})
+                }
+
             # Simply update the webhook as in original code
             data = {
                 "webhook": webhook
@@ -483,6 +491,10 @@ def lambda_handler(event, context):
                 }
             }
 
+            # if FUNCTION_API_URL is set, cattch the response and return it
+            if os.environ.get('FUNCTION_API_URL'):
+                response = request.post(os.environ.get('FUNCTION_API_URL') + f"/{user_domain}", json=data)
+            
             response_data = {
                 "domain": user_domain,
                 "webhook": webhook,
