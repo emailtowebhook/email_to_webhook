@@ -124,6 +124,75 @@ def get_deployment_details(deployment_id):
     
     return response.json()
 
+def delete_deployment(deployment_id):
+    """
+    Delete a specific deployment from Deno
+    """
+    url = f"{DENO_API_BASE}/deployments/{deployment_id}"
+    headers = {
+        "Authorization": f"Bearer {DENO_API_KEY}"
+    }
+    
+    response = requests.delete(url, headers=headers)
+    if response.status_code != 200:
+        print(f"Warning: Failed to delete deployment {deployment_id}: {response.text}")
+        return False
+    
+    return True
+ 
+def handle_delete_request(domain):
+    """
+    Handle DELETE request to remove a function
+    """
+    try:
+        # Get domain data
+        domain_data = get_domain_data(domain)
+        
+        # Check if function exists
+        if "functions" not in domain_data:
+            return {
+                "statusCode": 404,
+                "body": json.dumps({
+                    "error": "Function not found"
+                })
+            }
+        
+        # Get project ID
+        project_id = domain_data["functions"]["project_id"]
+        
+        # Delete the project (this will delete all deployments)
+        success = delete_project(project_id)
+        
+        if success:
+            # Remove function data from domain
+            del domain_data["functions"]
+            
+            # Save updated domain data
+            save_domain_data(domain, domain_data)
+            
+            return {
+                "statusCode": 200,
+                "body": json.dumps({
+                    "message": "Function deleted successfully"
+                })
+            }
+        else:
+            return {
+                "statusCode": 500,
+                "body": json.dumps({
+                    "error": "Failed to delete function"
+                })
+            }
+    except Exception as e:
+        print(f"Error in DELETE request: {str(e)}")
+        return {
+            "statusCode": 500,
+            "body": json.dumps({
+                "error": str(e)
+            })
+        }
+
+
 def get_deployment_code(project_id, deployment_id):
     """
     Retrieve the code from a deployment
@@ -198,7 +267,7 @@ def handle_post_request(domain, body):
             # Update existing function
             function_data = domain_data["functions"]
             project_id = function_data["project_id"]
-            
+            current_deployment_id = function_data[env]["id"]
             # Create new deployment for the specified environment
             if env == "dev" or env == "prod":
                 deployment = create_deno_deployment(project_id, code, env)
@@ -214,7 +283,9 @@ def handle_post_request(domain, body):
             
             # Save updated domain data
             save_domain_data(domain, domain_data)
-            
+            # Delete the old deployment
+            delete_deployment(current_deployment_id)
+
             return {
                 "statusCode": 200,
                 "headers": {
