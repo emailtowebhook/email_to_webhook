@@ -437,7 +437,7 @@ def lambda_handler(event, context):
         
         # Handle request based on HTTP method
         if http_method == "POST":
-            return handle_post_request(domain, body)
+            return handle_post_request(domain, body, project_id)
         elif http_method == "GET":
             return handle_get_request(domain)
         elif http_method == "DELETE":
