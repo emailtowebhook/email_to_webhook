@@ -83,6 +83,9 @@ def create_deno_deployment(project_id, code, env="dev", domain=None):
     if not code:
         code = 'export default { async fetch(req) { return new Response("Default function") } }'
     
+
+    print(code)
+
     payload = {
         "entryPointUrl": "main.ts",
         "assets": {
