@@ -2,7 +2,7 @@
 # Copyright (c) 2023 [Your Name or Organization]
 # See LICENSE file for details
 
-from urllib import request
+import requests
 import boto3
 import json
 import secrets
