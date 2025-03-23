@@ -311,6 +311,7 @@ def handle_post_request(domain, body , project_id = None):
                 }
             # Update existing function
             function_data = domain_data["functions"]
+            function_data["enabled"] = enabled
             project_id =  function_data["project_id"] if project_id is None else project_id
             current_deployment_id = function_data[env]["id"]
             # Create new deployment for the specified environment
