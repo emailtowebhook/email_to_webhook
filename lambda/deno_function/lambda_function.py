@@ -124,9 +124,9 @@ def get_deployment_details(deployment_id):
         return {}
     
     # wait for the deployment to be ready (orther then pending)
-    while response.json()["status"] == "pending":
-        time.sleep(1)
-        response = requests.get(url, headers=headers)
+    #while response.json()["status"] == "pending":
+    #    time.sleep(1)
+    #    response = requests.get(url, headers=headers)
 
     return response.json()
 
