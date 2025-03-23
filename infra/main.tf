@@ -542,3 +542,133 @@ resource "aws_iam_role_policy" "lambda_s3_policy" {
     ]
   })
 }
+
+######### Deno Function Lambda #########
+resource "aws_lambda_function" "deno_function_lambda" {
+  function_name = "deno-function-handler"
+  role          = aws_iam_role.deno_lambda_exec.arn
+  handler       = "lambda_function.lambda_handler"
+  runtime       = "python3.9"
+  filename      = var.deno_lambda_file_path # ZIP file path for the Deno lambda
+  timeout       = 30
+
+  # Detect changes in ZIP content
+  source_code_hash = filebase64sha256(var.deno_lambda_file_path)
+
+  environment {
+    variables = {
+      DATABASE_BUCKET_NAME = var.database_bucket_name
+      ATTACHMENTS_BUCKET_NAME = var.attachments_bucket_name
+      DENO_API_KEY = var.deno_api_key
+      DENO_ORG_ID = var.deno_org_id
+    }
+  }
+}
+
+# IAM role for Deno Function Lambda
+resource "aws_iam_role" "deno_lambda_exec" {
+  name = "deno_lambda_exec_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+# IAM policy for Deno Function Lambda
+resource "aws_iam_role_policy" "deno_lambda_policy" {
+  name = "deno_lambda_policy"
+  role = aws_iam_role.deno_lambda_exec.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      # S3 Permissions
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket",
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
+        Resource = [
+          "arn:aws:s3:::${var.database_bucket_name}",
+          "arn:aws:s3:::${var.database_bucket_name}/*",
+          "arn:aws:s3:::${var.attachments_bucket_name}/*"
+        ]
+      },
+      # CloudWatch Logs Permissions
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      }
+    ]
+  })
+}
+
+# Basic execution role policy attachment
+resource "aws_iam_policy_attachment" "deno_lambda_policy_attachment" {
+  name       = "deno_lambda_policy_attachment"
+  roles      = [aws_iam_role.deno_lambda_exec.name]
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# API Gateway Integration with Deno Function Lambda
+resource "aws_apigatewayv2_integration" "deno_function_integration" {
+  api_id           = aws_apigatewayv2_api.lambda_api.id
+  integration_type = "AWS_PROXY"
+  integration_uri  = aws_lambda_function.deno_function_lambda.arn
+  payload_format_version = "2.0"
+}
+
+# API Gateway Routes for CRUD operations on functions
+# POST - Create/update function code
+resource "aws_apigatewayv2_route" "post_function_route" {
+  api_id    = aws_apigatewayv2_api.lambda_api.id
+  route_key = "POST /v1/functions/code/{domain}"
+  target    = "integrations/${aws_apigatewayv2_integration.deno_function_integration.id}"
+}
+
+# GET - Retrieve function code
+resource "aws_apigatewayv2_route" "get_function_route" {
+  api_id    = aws_apigatewayv2_api.lambda_api.id
+  route_key = "GET /v1/functions/code/{domain}"
+  target    = "integrations/${aws_apigatewayv2_integration.deno_function_integration.id}"
+}
+
+# DELETE - Remove function
+resource "aws_apigatewayv2_route" "delete_function_route" {
+  api_id    = aws_apigatewayv2_api.lambda_api.id
+  route_key = "DELETE /v1/functions/code/{domain}"
+  target    = "integrations/${aws_apigatewayv2_integration.deno_function_integration.id}"
+}
+
+# PUT - Update function settings (enable/disable)
+resource "aws_apigatewayv2_route" "put_function_route" {
+  api_id    = aws_apigatewayv2_api.lambda_api.id
+  route_key = "PUT /v1/functions/code/{domain}"
+  target    = "integrations/${aws_apigatewayv2_integration.deno_function_integration.id}" 
+}
+
+# Lambda Permission for API Gateway
+resource "aws_lambda_permission" "deno_function_api_gateway_permission" {
+  statement_id  = "AllowDenofunctionAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.deno_function_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.lambda_api.execution_arn}/prod/*"
+}

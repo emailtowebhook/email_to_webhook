@@ -21,6 +21,11 @@ variable "parser_lambda_file_path" {
   type = string
 }
 
+variable "deno_lambda_file_path" {
+  description = "The path to the Deno function lambda file"
+  default = "../lambda_packages/deno_function.zip"
+  type = string
+}
 
 
 variable "database_bucket_name" {
@@ -45,6 +50,18 @@ variable "db_connection_string" {
   description = "The PostgreSQL database connection string for email storage"
   default     = ""
   type        = string
+}
+
+variable "deno_org_id" {
+  description = "The Deno organization ID for deployment"
+  type        = string
+  default     = ""
+}
+
+variable "deno_api_key" {
+  description = "The Deno API key for authentication"
+  type        = string
+  default     = ""
 }
 
 
