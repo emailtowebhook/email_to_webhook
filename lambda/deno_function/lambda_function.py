@@ -220,6 +220,9 @@ def handle_post_request(domain, body):
         print(f"Error in POST request: {str(e)}")
         return {
             "statusCode": 500,
+            "headers": {
+                "Content-Type": "application/json"
+            },
             "body": json.dumps({
                 "error": str(e)
             })
