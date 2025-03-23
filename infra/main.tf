@@ -199,7 +199,7 @@ resource "aws_lambda_function" "verify_domain_lambda" {
     }
   }
 
-  timeout = 10
+  timeout = 20
   depends_on = [aws_apigatewayv2_route.post_function_route]
 }
 
