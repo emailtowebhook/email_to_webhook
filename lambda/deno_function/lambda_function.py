@@ -268,6 +268,7 @@ def handle_post_request(domain, body , project_id = None):
         domain_data = get_domain_data(domain)
         
         code = body.get("code", "")
+        enabled = body.get("enabled", False)
         env = body.get("env", "dev").lower()  # Default to dev environment
 
         # Check if function data exists
@@ -285,7 +286,7 @@ def handle_post_request(domain, body , project_id = None):
             # Update domain data with new structure
             domain_data["functions"] = {
                 "project_id": project_id,
-                "enabled": False, 
+                "enabled": enabled, 
                 "dev": dev_deployment,
                 "prod": prod_deployment
             }
