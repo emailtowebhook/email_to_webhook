@@ -112,7 +112,7 @@ def get_deployment_details(project_id, deployment_id):
     """
     Get complete details for a deployment including domains
     """
-    url = f"{DENO_API_BASE}/projects/{project_id}/deployments/{deployment_id}"
+    url = f"{DENO_API_BASE}/deployments/{deployment_id}"
     headers = {
         "Authorization": f"Bearer {DENO_API_KEY}"
     }
