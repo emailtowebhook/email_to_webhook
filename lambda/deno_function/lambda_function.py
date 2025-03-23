@@ -58,7 +58,8 @@ def create_deno_project(domain):
         "Content-Type": "application/json"
     }
     payload = {
-        "name": f"function-{domain}"
+        "name": f"fn-{domain.replace('.', '-')}"[:26],
+        "description": f"Email processing function for {domain}"
     }
     
     response = requests.post(url, json=payload, headers=headers)
