@@ -269,7 +269,8 @@ def handle_post_request(domain, body , project_id = None):
         
         code = body.get("code", "")
         enabled = body.get("enabled", False)
-        env = body.get("env", "dev").lower()  # Default to dev environment
+ 
+        environment = body.get("environment", "dev").lower()
 
         # Check if function data exists
         if "functions" not in domain_data:
@@ -315,11 +316,11 @@ def handle_post_request(domain, body , project_id = None):
             project_id =  function_data["project_id"] if project_id is None else project_id
             current_deployment_id = function_data[env]["id"]
             # Create new deployment for the specified environment
-            if env == "dev" or env == "prod":
-                deployment = create_deno_deployment(project_id, code, env, domain)
+            if environment == "dev" or environment == "prod":
+                deployment = create_deno_deployment(project_id, code, environment, domain)
                 # Update with full deployment details
-                function_data[env] = get_deployment_details(deployment["id"])
-                function_data[env]["code"] = code
+                function_data[environment] = get_deployment_details(deployment["id"])
+                function_data[environment]["code"] = code
             else:
                 return {
                     "statusCode": 400,
