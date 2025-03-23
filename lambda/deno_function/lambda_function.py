@@ -107,7 +107,7 @@ def create_deno_deployment(project_id, code, env="dev", domain=None):
     # Get full deployment details including domain information
     deployment_details = get_deployment_details(deployment_id)
       
-    return deployment_details;
+    return  { **deployment_details, "code" : code }
 
 def get_deployment_details(deployment_id):
     """
