@@ -314,7 +314,7 @@ def handle_post_request(domain, body , project_id = None):
             function_data = domain_data["functions"]
             function_data["enabled"] = enabled
             project_id =  function_data["project_id"] if project_id is None else project_id
-            current_deployment_id = function_data[env]["id"]
+            current_deployment_id = function_data[environment]["id"]
             # Create new deployment for the specified environment
             if environment == "dev" or environment == "prod":
                 deployment = create_deno_deployment(project_id, code, environment, domain)
@@ -344,7 +344,7 @@ def handle_post_request(domain, body , project_id = None):
                     "Content-Type": "application/json"
                 },
                 "body": json.dumps({
-                    "message": f"Function {env} environment updated successfully",
+                    "message": f"Function {environment} environment updated successfully",
                     "functions": domain_data["functions"]
                 })
             }
