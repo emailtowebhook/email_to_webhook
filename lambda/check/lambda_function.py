@@ -164,6 +164,13 @@ def delete_domain(domain):
             print(f"Error deleting domain from S3 {domain}: {str(s3_error)}")
             # Continue even if S3 delete fails
         
+        # Delete from Deno
+        try:
+            response = requests.delete(os.environ.get('FUNCTION_API_URL') + f"/{domain}")
+            print(response.json())
+        except Exception as e:
+            print(f"Error deleting domain from Deno {domain}: {str(e)}")
+        
         return True
     except Exception as e:
         print(f"Error in delete_domain operation for {domain}: {str(e)}")
