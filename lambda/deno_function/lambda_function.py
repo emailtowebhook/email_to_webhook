@@ -1,3 +1,4 @@
+from datetime import time
 import json
 import os
 import boto3
@@ -122,6 +123,11 @@ def get_deployment_details(deployment_id):
         print(f"Warning: Failed to get deployment details: {response.text}")
         return {}
     
+    # wait for the deployment to be ready (orther then pending)
+    while response.json()["status"] == "pending":
+        time.sleep(1)
+        response = requests.get(url, headers=headers)
+
     return response.json()
 
 def delete_deployment(deployment_id):
@@ -150,7 +156,7 @@ def delete_project(project_id):
     }
     
     response = requests.delete(url, headers=headers)
-    if response.status_code != 204 and response.status_code != 200:
+    if response.status_code != 200:
         print(f"Warning: Failed to delete project {project_id}: {response.text}")
         return False
     
@@ -357,44 +363,7 @@ def handle_get_request(domain):
             })
         }
 
-def handle_delete_request(domain):
-    """
-    Handle DELETE request to remove a function
-    """
-    try:
-        # Get domain data
-        domain_data = get_domain_data(domain)
-        
-        # Check if function exists
-        if "functions" not in domain_data:
-            return {
-                "statusCode": 404,
-                "body": json.dumps({
-                    "error": "Function not found"
-                })
-            }
-        
-        # Remove function data
-        del domain_data["functions"]
-        
-        # Save updated domain data
-        save_domain_data(domain, domain_data)
-        
-        return {
-            "statusCode": 200,
-            "body": json.dumps({
-                "message": "Function deleted successfully"
-            })
-        }
-    except Exception as e:
-        print(f"Error in DELETE request: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({
-                "error": str(e)
-            })
-        }
-
+ 
 def handle_put_request(domain, body):
     """
     Handle PUT request to update function settings
