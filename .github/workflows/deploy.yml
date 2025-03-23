@@ -34,6 +34,10 @@ jobs:
         run: |
           cd lambda/parser && ./package.sh
 
+      - name: Package Deno Function Lambda function
+        run: |
+          cd lambda/deno_function && ./package.sh
+
       - name: Terraform Init
         run: |
           cd infra
