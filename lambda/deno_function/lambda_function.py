@@ -139,7 +139,23 @@ def delete_deployment(deployment_id):
         return False
     
     return True
- 
+
+def delete_project(project_id):
+    """
+    Delete a Deno project and all its deployments
+    """
+    url = f"{DENO_API_BASE}/projects/{project_id}"
+    headers = {
+        "Authorization": f"Bearer {DENO_API_KEY}"
+    }
+    
+    response = requests.delete(url, headers=headers)
+    if response.status_code != 204 and response.status_code != 200:
+        print(f"Warning: Failed to delete project {project_id}: {response.text}")
+        return False
+    
+    return True
+
 def handle_delete_request(domain):
     """
     Handle DELETE request to remove a function
