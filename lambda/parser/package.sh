@@ -1,7 +1,4 @@
 #!/bin/bash
-# MIT License
-# Copyright (c) 2023 [Your Name or Organization]
-# See LICENSE file for details
 
 # Get the current directory name (function name)
 FUNCTION_NAME=$(basename "$PWD")
