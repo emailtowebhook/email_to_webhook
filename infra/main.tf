@@ -193,7 +193,7 @@ resource "aws_lambda_function" "verify_domain_lambda" {
 
   environment {
     variables = {
-      BUCKET_NAME = var.database_bucket_name
+      DATABASE_BUCKET_NAME = var.database_bucket_name
       FUNCTION_API_URL = "${aws_apigatewayv2_api.lambda_api.api_endpoint}/prod/v1/functions/code/"
   
     }
