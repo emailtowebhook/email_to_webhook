@@ -496,9 +496,8 @@ resource "aws_iam_role_policy" "lambda_ses_smtp_policy" {
   })
 }
 
-resource "aws_iam_policy_attachment" "lambda_policy_attachment" {
-  name       = "lambda_policy_attachment"
-  roles      = [aws_iam_role.lambda_exec.name]
+resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
+  role       = aws_iam_role.lambda_exec.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
@@ -621,9 +620,8 @@ resource "aws_iam_role_policy" "deno_lambda_policy" {
 }
 
 # Basic execution role policy attachment
-resource "aws_iam_policy_attachment" "deno_lambda_policy_attachment" {
-  name       = "deno_lambda_policy_attachment"
-  roles      = [aws_iam_role.deno_lambda_exec.name]
+resource "aws_iam_role_policy_attachment" "deno_lambda_policy_attachment" {
+  role       = aws_iam_role.deno_lambda_exec.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
