@@ -1,24 +1,51 @@
 #!/bin/bash
 
-# Create a temporary directory for packaging
-mkdir -p package
+# Get the current directory name (function name)
+FUNCTION_NAME=$(basename "$PWD")
+ROOT_DIR=$(git rev-parse --show-toplevel 2>/dev/null || echo "$(cd ../ && pwd)")
+ZIP_FILE="${ROOT_DIR}/lambda_packages/${FUNCTION_NAME}.zip"
+TEMP_DIR=$(mktemp -d)
 
-# Install dependencies to the package directory
-pip install -r requirements.txt --target ./package
+echo "Packaging Lambda function: $FUNCTION_NAME"
+echo "Root directory for zip: $ROOT_DIR"
 
-# Copy the Lambda function to the package directory
-cp lambda_function.py ./package/
+# Step 1: Clean up old zip file
+if [ -f "$ZIP_FILE" ]; then
+  echo "Removing old package at $ZIP_FILE..."
+  rm "$ZIP_FILE"
+fi
 
-# Create the ZIP file
-cd package
-zip -r ../deno_function.zip .
-cd ..
+# Step 2: Install dependencies in a temporary directory
+if [ -f "requirements.txt" ]; then
+  echo "Installing dependencies from requirements.txt..."
+  pip install -r "requirements.txt" -t "$TEMP_DIR" || {
+    echo "Error installing dependencies for $FUNCTION_NAME."
+    rm -rf "$TEMP_DIR"
+    exit 1
+  }
+else
+  echo "No requirements.txt found. Skipping dependency installation."
+fi
 
-# Move the ZIP file to the lambda_packages directory
-mkdir -p ../../lambda_packages
-mv deno_function.zip ../../lambda_packages/
+# Step 3: Copy Lambda function code into the temporary directory
+echo "Copying Lambda function code..."
+cp ./*.py "$TEMP_DIR/" || {
+  echo "Error copying code for $FUNCTION_NAME."
+  rm -rf "$TEMP_DIR"
+  exit 1
+}
 
-echo "Packaging complete. Lambda ZIP file created at ../../lambda_packages/deno_function.zip"
+# Step 4: Create the ZIP package in the root directory
+echo "Creating ZIP package..."
+cd "$TEMP_DIR" || { echo "Failed to change directory to $TEMP_DIR"; exit 1; }
+zip -r "$ZIP_FILE" ./* || {
+  echo "Error creating ZIP package for $FUNCTION_NAME."
+  rm -rf "$TEMP_DIR"
+  exit 1
+}
+cd - > /dev/null || exit
 
-# Clean up
-rm -rf package 
+# Step 5: Clean up the temporary directory
+rm -rf "$TEMP_DIR"
+
+echo "Package created at $ZIP_FILE."
