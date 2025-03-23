@@ -450,7 +450,7 @@ def lambda_handler(event, context):
     
             # Check if key exists, exit if it does
             try:
-                s3.head_object(Bucket=bucket_name, Key=key)
+                s3.get_object(Bucket=bucket_name, Key=key)
                 return {
                     "statusCode": 200,
                     "headers": {
