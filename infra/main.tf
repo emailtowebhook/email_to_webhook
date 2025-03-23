@@ -390,8 +390,10 @@ resource "aws_lambda_function" "parsing_lambda" {
       DATABASE_BUCKET_NAME = var.database_bucket_name
       ATTACHMENTS_BUCKET_NAME = var.attachments_bucket_name
       DB_CONNECTION_STRING = var.db_connection_string
+      FUNCTION_API_URL = "${aws_apigatewayv2_api.lambda_api.api_endpoint}/prod/v1/functions/code/"
     }
   }
+  depends_on = [aws_apigatewayv2_route.post_function_route]
 }
 
 resource "aws_iam_role" "lambda_exec" {
