@@ -88,7 +88,7 @@ def create_deno_deployment(project_id, code, env="dev", domain=None):
         "assets": {
             "main.ts": {
                 "kind": "file",
-                "content": code,
+                "content": json.dumps(code),
                 "encoding": "utf-8"
             }
         },
