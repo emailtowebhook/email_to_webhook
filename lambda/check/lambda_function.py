@@ -160,7 +160,7 @@ def delete_domain(domain):
             print(response.json())
         except Exception as e:
             print(f"Error deleting domain from Deno {domain}: {str(e)}")
-             
+
         # Delete from S3
         try:
             s3.delete_object(
@@ -506,9 +506,9 @@ def lambda_handler(event, context):
             }
 
             # if FUNCTION_API_URL is set, cattch the response and return it
-            if os.environ.get('FUNCTION_API_URL'):
-                response = requests.post(os.environ.get('FUNCTION_API_URL') + f"/{user_domain}", json=data)
-                print(response.json())
+            # if os.environ.get('FUNCTION_API_URL'):
+            #     response = requests.post(os.environ.get('FUNCTION_API_URL') + f"/{user_domain}", json=data)
+            #     print(response.json())
    
             response_data = {
                 "domain": user_domain,
