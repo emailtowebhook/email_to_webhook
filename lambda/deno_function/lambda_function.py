@@ -42,7 +42,7 @@ def save_domain_data(domain, data):
         s3_client.put_object(
             Bucket=DATABASE_BUCKET_NAME,
             Key=domain,
-            Body=json.dumps(data),
+            Body=data,
             ContentType='application/json'
         )
     except Exception as e:
@@ -280,8 +280,6 @@ def handle_post_request(domain, body , project_id = None):
                 })
             }
         else:
-        # Extract code and environment from request body
-           
             # Validate that code is provided
             if not code:
                 return {
@@ -299,6 +297,7 @@ def handle_post_request(domain, body , project_id = None):
                 deployment = create_deno_deployment(project_id, code, env, domain)
                 # Update with full deployment details
                 function_data[env] = get_deployment_details(deployment["id"])
+                function_data[env]["code"] = code
             else:
                 return {
                     "statusCode": 400,
@@ -311,6 +310,7 @@ def handle_post_request(domain, body , project_id = None):
             save_domain_data(domain, domain_data)
             # Delete the old deployment
             delete_deployment(current_deployment_id)
+
 
             return {
                 "statusCode": 200,
