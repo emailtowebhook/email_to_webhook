@@ -96,7 +96,7 @@ def create_deno_deployment(project_id, code, env="dev"):
     }
     
     response = requests.post(url, json=payload, headers=headers)
-    if response.status_code != 201:
+    if response.status_code != 201 and response.status_code != 200:
         raise Exception(f"Failed to create deployment: {response.text}")
     
     # Get the initial deployment data
@@ -172,8 +172,8 @@ def handle_post_request(domain, body):
             domain_data["functions"] = {
                 "project_id": project_id,
                 "enabled": False, 
-                "dev": get_deployment_details(project_id, dev_deployment["deployment_id"]),
-                "prod": get_deployment_details(project_id, prod_deployment["deployment_id"])
+                "dev": dev_deployment,
+                "prod": prod_deployment
             }
             
             save_domain_data(domain, domain_data)
