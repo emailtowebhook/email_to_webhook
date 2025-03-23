@@ -447,13 +447,20 @@ def lambda_handler(event, context):
             bucket_name = os.environ.get('BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
             key = user_domain
 
-            # if key exists, exit
-            if s3.get_object(Bucket=bucket_name, Key=key):
+    
+            # Check if key exists, exit if it does
+            try:
+                s3.head_object(Bucket=bucket_name, Key=key)
                 return {
                     "statusCode": 200,
+                    "headers": {
+                        "Content-Type": "application/json"
+                    },
                     "body": json.dumps({"message": "Domain already exists"})
                 }
-
+            except s3.exceptions.NoSuchKey as e:
+                pass
+            
             # Simply update the webhook as in original code
             data = {
                 "webhook": webhook
