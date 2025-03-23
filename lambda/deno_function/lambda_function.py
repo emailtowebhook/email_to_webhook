@@ -99,6 +99,7 @@ def create_deno_deployment(project_id, code, env="dev"):
     if response.status_code != 201 and response.status_code != 200:
         raise Exception(f"Failed to create deployment: {response.text}")
     
+    
     deployment_data = response.json()
     deployment_id = deployment_data["id"]
     deployment_url = f"https://{deployment_data['domains'][0]}"
@@ -136,20 +137,13 @@ def handle_post_request(domain, body):
     try:
         # Get existing domain data
         domain_data = get_domain_data(domain)
-        # Check if domain data exists
-        if not domain_data:
-            return {
-                "statusCode": 404,
-                "body": json.dumps({
-                    "message": f"Domain {domain} not found"
-                })
-            }
+        
         # Extract code and environment from request body
         code = body.get("code", "")
         env = body.get("env", "dev").lower()  # Default to dev environment
         
         # Check if function data exists
-        if "function" not in domain_data:
+        if "functions" not in domain_data:
             # Create new project and deployments
             project_id = create_deno_project(domain)
             
@@ -159,14 +153,12 @@ def handle_post_request(domain, body):
             # Create prod deployment with same code initially
             prod_deployment = create_deno_deployment(project_id, code, "prod")
             
-            # Update domain data with function information
-            domain_data["function"] = {
+            # Update domain data with new structure
+            domain_data["functions"] = {
                 "project_id": project_id,
-                "dev_deployment_id": dev_deployment["deployment_id"],
-                "dev_deployment_url": dev_deployment["deployment_url"],
-                "prod_deployment_id": prod_deployment["deployment_id"],
-                "prod_deployment_url": prod_deployment["deployment_url"],
-                "enabled": True  # Enable by default
+                "enabled": True,  # Enable by default
+                "dev": get_deployment_details(project_id, dev_deployment["deployment_id"]),
+                "prod": get_deployment_details(project_id, prod_deployment["deployment_id"])
             }
             
             save_domain_data(domain, domain_data)
@@ -175,23 +167,19 @@ def handle_post_request(domain, body):
                 "statusCode": 201,
                 "body": json.dumps({
                     "message": "Function created successfully",
-                    "function": domain_data["function"]
+                    "functions": domain_data["functions"]
                 })
             }
         else:
             # Update existing function
-            function_data = domain_data["function"]
+            function_data = domain_data["functions"]
             project_id = function_data["project_id"]
             
             # Create new deployment for the specified environment
-            if env == "dev":
-                deployment = create_deno_deployment(project_id, code, "dev")
-                function_data["dev_deployment_id"] = deployment["deployment_id"]
-                function_data["dev_deployment_url"] = deployment["deployment_url"]
-            elif env == "prod":
-                deployment = create_deno_deployment(project_id, code, "prod")
-                function_data["prod_deployment_id"] = deployment["deployment_id"]
-                function_data["prod_deployment_url"] = deployment["deployment_url"]
+            if env == "dev" or env == "prod":
+                deployment = create_deno_deployment(project_id, code, env)
+                # Update with full deployment details
+                function_data[env] = get_deployment_details(project_id, deployment["deployment_id"])
             else:
                 return {
                     "statusCode": 400,
@@ -207,7 +195,7 @@ def handle_post_request(domain, body):
                 "statusCode": 200,
                 "body": json.dumps({
                     "message": f"Function {env} environment updated successfully",
-                    "function": domain_data["function"]
+                    "functions": domain_data["functions"]
                 })
             }
     except Exception as e:
@@ -228,7 +216,7 @@ def handle_get_request(domain):
         domain_data = get_domain_data(domain)
         
         # Check if function exists
-        if "function" not in domain_data:
+        if "functions" not in domain_data:
             return {
                 "statusCode": 404,
                 "body": json.dumps({
@@ -240,7 +228,7 @@ def handle_get_request(domain):
         return {
             "statusCode": 200,
             "body": json.dumps({
-                "function": domain_data["function"]
+                "functions": domain_data["functions"]
             })
         }
     except Exception as e:
@@ -261,7 +249,7 @@ def handle_delete_request(domain):
         domain_data = get_domain_data(domain)
         
         # Check if function exists
-        if "function" not in domain_data:
+        if "functions" not in domain_data:
             return {
                 "statusCode": 404,
                 "body": json.dumps({
@@ -270,7 +258,7 @@ def handle_delete_request(domain):
             }
         
         # Remove function data
-        del domain_data["function"]
+        del domain_data["functions"]
         
         # Save updated domain data
         save_domain_data(domain, domain_data)
@@ -299,7 +287,7 @@ def handle_put_request(domain, body):
         domain_data = get_domain_data(domain)
         
         # Check if function exists
-        if "function" not in domain_data:
+        if "functions" not in domain_data:
             return {
                 "statusCode": 404,
                 "body": json.dumps({
@@ -312,7 +300,7 @@ def handle_put_request(domain, body):
         
         # Update function settings
         if enabled is not None:
-            domain_data["function"]["enabled"] = bool(enabled)
+            domain_data["functions"]["enabled"] = bool(enabled)
         
         # Save updated domain data
         save_domain_data(domain, domain_data)
@@ -321,7 +309,7 @@ def handle_put_request(domain, body):
             "statusCode": 200,
             "body": json.dumps({
                 "message": "Function settings updated successfully",
-                "function": domain_data["function"]
+                "functions": domain_data["functions"]
             })
         }
     except Exception as e:
