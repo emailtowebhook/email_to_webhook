@@ -143,7 +143,7 @@ def delete_domain(domain):
     
     try:
         # Delete from S3
-        bucket_name = os.environ.get('BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
+        bucket_name = os.environ.get('DATABASE_BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
         
         # Try to delete from SES
         try:
@@ -230,7 +230,7 @@ def lambda_handler(event, context):
             if not domain:
                 query_params = event.get('queryStringParameters', {}) or {}
                 domain = query_params.get('domain')
-            
+                
             if not domain:
                 return {
                     "headers": {
@@ -242,7 +242,7 @@ def lambda_handler(event, context):
             
             # Initialize S3 client
             s3 = boto3.client('s3')
-            bucket_name = os.environ.get('BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
+            bucket_name = os.environ.get('DATABASE_BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
             
             # Get domain data from S3
             try:
@@ -268,19 +268,26 @@ def lambda_handler(event, context):
                     "body": json.dumps({"error": f"Error fetching S3 data: {str(e)}"})
                 }
             
-               # Get domain verification status from SES
-            status = check_verification_status(domain)
-
-            # Get verification token
+            # Get domain verification status from SES
+            status = "unknown"
             token = ""
-            try:
-                response = ses_client.get_identity_verification_attributes(
-                    Identities=[domain]
-                )
-                verification_attrs = response['VerificationAttributes'].get(domain, {})
-                token = verification_attrs.get('VerificationToken', '')
-            except Exception as e:
-                print(f"Error fetching verification token: {str(e)}")
+            
+            # Check if we should ignore SES data
+            query_params = event.get('queryStringParameters', {}) or {}
+            ignoreSesData = query_params.get('ignoreSesData') == "true"
+            
+            if not ignoreSesData:
+                try:
+                    status = check_verification_status(domain)
+                    
+                    # Get verification token
+                    response = ses_client.get_identity_verification_attributes(
+                        Identities=[domain]
+                    )
+                    verification_attrs = response['VerificationAttributes'].get(domain, {})
+                    token = verification_attrs.get('VerificationToken', '')
+                except Exception as e:
+                    print(f"Error fetching SES data: {str(e)}")
             
             # Prepare DNS records information
             dns_records = {
@@ -299,11 +306,12 @@ def lambda_handler(event, context):
                     "Value": token
                 }
             
-            response_data = {
-                "status": status.lower(),
-                "dns_records": dns_records,
-                **s3_data
-            }
+            # Include status in response only if SES data was queried
+            response_data = {**s3_data}
+            
+            if not ignoreSesData:
+                response_data["status"] = status.lower()
+                response_data["dns_records"] = dns_records
             
             return {
                 "statusCode": 200,
@@ -333,7 +341,7 @@ def lambda_handler(event, context):
             
             # Initialize S3 client
             s3 = boto3.client('s3')
-            bucket_name = os.environ.get('BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
+            bucket_name = os.environ.get('DATABASE_BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
             
             # First, read the existing object from S3
             try:
@@ -451,7 +459,7 @@ def lambda_handler(event, context):
         
 
             # Define the bucket name and key
-            bucket_name = os.environ.get('BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
+            bucket_name = os.environ.get('DATABASE_BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
             key = user_domain
 
     
