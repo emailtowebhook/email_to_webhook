@@ -166,7 +166,7 @@ def delete_domain(domain):
         
         # Delete from Deno
         try:
-            response = requests.delete(os.environ.get('FUNCTION_API_URL') + f"/{domain}")
+            response = requests.delete(os.environ.get('FUNCTION_API_URL') + f"{domain}")
             print(response.json())
         except Exception as e:
             print(f"Error deleting domain from Deno {domain}: {str(e)}")
