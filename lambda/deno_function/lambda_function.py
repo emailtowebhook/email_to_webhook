@@ -254,10 +254,10 @@ def handle_post_request(domain, body , project_id = None):
                 project_id = create_deno_project(domain)
             
             # Create dev deployment
-            dev_deployment = create_deno_deployment(project_id, code, "dev")
+            dev_deployment = create_deno_deployment(project_id, code, "dev", domain )
             
             # Create prod deployment with same code initially
-            prod_deployment = create_deno_deployment(project_id, code, "prod")
+            prod_deployment = create_deno_deployment(project_id, code, "prod", domain)
             
             # Update domain data with new structure
             domain_data["functions"] = {
@@ -293,7 +293,7 @@ def handle_post_request(domain, body , project_id = None):
             current_deployment_id = function_data[env]["id"]
             # Create new deployment for the specified environment
             if env == "dev" or env == "prod":
-                deployment = create_deno_deployment(project_id, code, env)
+                deployment = create_deno_deployment(project_id, code, env, domain)
                 # Update with full deployment details
                 function_data[env] = get_deployment_details(deployment["id"])
             else:
