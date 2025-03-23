@@ -42,7 +42,7 @@ def save_domain_data(domain, data):
         s3_client.put_object(
             Bucket=DATABASE_BUCKET_NAME,
             Key=domain,
-            Body=data,
+            Body=json.dumps(data),
             ContentType='application/json'
         )
     except Exception as e:
@@ -306,6 +306,9 @@ def handle_post_request(domain, body , project_id = None):
                     })
                 }
             
+            # Update the functions data with the latest deployment information
+            domain_data["functions"] = function_data
+          
             # Save updated domain data
             save_domain_data(domain, domain_data)
             # Delete the old deployment
