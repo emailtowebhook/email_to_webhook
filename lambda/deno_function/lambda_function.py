@@ -63,7 +63,7 @@ def create_deno_project(domain):
     }
     
     response = requests.post(url, json=payload, headers=headers)
-    if response.status_code != 201:
+    if response.status_code != 201 and response.status_code != 200:
         raise Exception(f"Failed to create project: {response.text}")
     
     return response.json()["id"]
@@ -96,7 +96,7 @@ def create_deno_deployment(project_id, code, env="dev"):
     }
     
     response = requests.post(url, json=payload, headers=headers)
-    if response.status_code != 201:
+    if response.status_code != 201 and response.status_code != 200:
         raise Exception(f"Failed to create deployment: {response.text}")
     
     deployment_data = response.json()
