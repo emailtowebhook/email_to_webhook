@@ -1,4 +1,4 @@
-from datetime import time
+import time
 import json
 import os
 import boto3
