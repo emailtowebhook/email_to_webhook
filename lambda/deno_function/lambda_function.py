@@ -104,11 +104,11 @@ def create_deno_deployment(project_id, code, env="dev"):
     deployment_id = deployment_data["id"]
     
     # Get full deployment details including domain information
-    deployment_details = get_deployment_details(project_id, deployment_id)
+    deployment_details = get_deployment_details(deployment_id)
       
     return deployment_details;
 
-def get_deployment_details(project_id, deployment_id):
+def get_deployment_details(deployment_id):
     """
     Get complete details for a deployment including domains
     """
@@ -153,10 +153,6 @@ def handle_post_request(domain, body):
         # Get existing domain data
         domain_data = get_domain_data(domain)
         
-        # Extract code and environment from request body
-        code = body.get("code", "")
-        env = body.get("env", "dev").lower()  # Default to dev environment
-        
         # Check if function data exists
         if "functions" not in domain_data:
             # Create new project and deployments
@@ -186,6 +182,18 @@ def handle_post_request(domain, body):
                 })
             }
         else:
+        # Extract code and environment from request body
+            code = body.get("code", "")
+            env = body.get("env", "dev").lower()  # Default to dev environment
+
+            # Validate that code is provided
+            if not code:
+                return {
+                    "statusCode": 400,
+                    "body": json.dumps({
+                        "error": "Function code is required"
+                    })
+                }
             # Update existing function
             function_data = domain_data["functions"]
             project_id = function_data["project_id"]
@@ -194,7 +202,7 @@ def handle_post_request(domain, body):
             if env == "dev" or env == "prod":
                 deployment = create_deno_deployment(project_id, code, env)
                 # Update with full deployment details
-                function_data[env] = get_deployment_details(project_id, deployment["deployment_id"])
+                function_data[env] = get_deployment_details(deployment["id"])
             else:
                 return {
                     "statusCode": 400,
