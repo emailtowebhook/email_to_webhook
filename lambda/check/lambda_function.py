@@ -501,7 +501,7 @@ def lambda_handler(event, context):
             # if FUNCTION_API_URL is set, cattch the response and return it
             if os.environ.get('FUNCTION_API_URL'):
                 response = requests.post(os.environ.get('FUNCTION_API_URL') + f"/{user_domain}")
-                print(response.json())
+   
             response_data = {
                 "domain": user_domain,
                 "webhook": webhook,
