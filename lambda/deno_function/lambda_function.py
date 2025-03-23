@@ -109,7 +109,27 @@ def create_deno_deployment(project_id, code, env="dev", domain=None):
     
     # Get full deployment details including domain information
     deployment_details = get_deployment_details(deployment_id)
+    # Wait for the deployment to be ready (not in pending state)
+    max_retries = 5
+    retry_count = 0
+    
+    while retry_count < max_retries:
+        if deployment_details.get("status") != "pending":
+            break
+            
+        print(f"Deployment {deployment_id} is pending. Waiting... (Attempt {retry_count+1}/{max_retries})")
+        time.sleep(2)  # Wait 2 seconds before checking again
+        
+        # Get updated deployment status
+        deployment_details = get_deployment_details(deployment_id)
+        retry_count += 1
+    
+    if deployment_details.get("status") == "pending":
+        print(f"Warning: Deployment {deployment_id} is still pending after maximum retries")
+    else:
+        print(f"Deployment {deployment_id} is now {deployment_details.get('status')}")
       
+
     return  { **deployment_details, "code" : code }
 
 def get_deployment_details(deployment_id):
