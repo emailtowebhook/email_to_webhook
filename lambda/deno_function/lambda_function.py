@@ -22,7 +22,7 @@ def get_domain_data(domain):
     try:
         response = s3_client.get_object(
             Bucket=DATABASE_BUCKET_NAME,
-            Key=f"{domain}"
+            Key=domain
         )
         data = json.loads(response['Body'].read().decode('utf-8'))
         return data
@@ -40,7 +40,7 @@ def save_domain_data(domain, data):
     try:
         s3_client.put_object(
             Bucket=DATABASE_BUCKET_NAME,
-            Key=f"{domain}",
+            Key=domain,
             Body=json.dumps(data),
             ContentType='application/json'
         )
