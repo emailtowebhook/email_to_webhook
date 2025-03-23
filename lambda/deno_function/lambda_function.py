@@ -96,18 +96,33 @@ def create_deno_deployment(project_id, code, env="dev"):
     }
     
     response = requests.post(url, json=payload, headers=headers)
-    if response.status_code != 201 and response.status_code != 200:
+    if response.status_code != 201:
         raise Exception(f"Failed to create deployment: {response.text}")
     
-    
+    # Get the initial deployment data
     deployment_data = response.json()
     deployment_id = deployment_data["id"]
-    deployment_url = f"https://{deployment_data['domains'][0]}"
     
-    return {
-        "deployment_id": deployment_id,
-        "deployment_url": deployment_url
+    # Get full deployment details including domain information
+    deployment_details = get_deployment_details(project_id, deployment_id)
+      
+    return deployment_details;
+
+def get_deployment_details(project_id, deployment_id):
+    """
+    Get complete details for a deployment including domains
+    """
+    url = f"{DENO_API_BASE}/projects/{project_id}/deployments/{deployment_id}"
+    headers = {
+        "Authorization": f"Bearer {DENO_API_KEY}"
     }
+    
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        print(f"Warning: Failed to get deployment details: {response.text}")
+        return {}
+    
+    return response.json()
 
 def get_deployment_code(project_id, deployment_id):
     """
@@ -156,7 +171,7 @@ def handle_post_request(domain, body):
             # Update domain data with new structure
             domain_data["functions"] = {
                 "project_id": project_id,
-                "enabled": True,  # Enable by default
+                "enabled": False, 
                 "dev": get_deployment_details(project_id, dev_deployment["deployment_id"]),
                 "prod": get_deployment_details(project_id, prod_deployment["deployment_id"])
             }
