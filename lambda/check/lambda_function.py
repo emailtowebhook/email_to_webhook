@@ -9,6 +9,8 @@ import secrets
 import string
 import re
 import os
+import uuid
+import datetime
 
 ses_client = boto3.client('ses')
 iam_client = boto3.client('iam')
@@ -192,6 +194,75 @@ def get_dkim_tokens(domain):
         print(f"Error getting DKIM tokens: {str(e)}")
     return []
 
+def get_public_key(domain):
+    """Get or generate public key for the domain."""
+    try:
+        response = ses_client.get_identity_mail_from_domain_attributes(
+            Identities=[domain]
+        )
+        # For now return empty as we'll use custom key if provided
+        return ""
+    except Exception as e:
+        print(f"Error getting public key: {str(e)}")
+        return ""
+
+def format_dns_records(domain, token, dkim_tokens, public_key=None):
+    """Format DNS records in a structured way."""
+    records = []
+    
+    # MX record
+    records.append({
+        "Type": "MX",
+        "Name": domain,
+        "Priority": 10,
+        "Value": "inbound-smtp.us-east-1.amazonaws.com"
+    })
+    
+    # SPF record
+    records.append({
+        "Type": "TXT",
+        "Name": domain,
+        "Priority": 0,
+        "Value": "v=spf1 include:amazonses.com ~all"
+    })
+
+    # DMARC record
+    records.append({
+        "Type": "TXT",
+        "Name": f"_dmarc.{domain}",
+        "Priority": 0,
+        "Value": f"v=DMARC1; p=none; rua=mailto:dmarc-reports@{domain}"
+    })
+
+    # Verification record
+    if token:
+        records.append({
+            "Type": "TXT",
+            "Name": f"_amazonses.{domain}",
+            "Priority": 0,
+            "Value": token
+        })
+
+    # DKIM records
+    for dkim_token in dkim_tokens:
+        records.append({
+            "Type": "CNAME",
+            "Name": f"{dkim_token}._domainkey.{domain}",
+            "Priority": 0,
+            "Value": f"{dkim_token}.dkim.amazonses.com"
+        })
+
+    # Custom DKIM if provided
+    if public_key:
+        records.append({
+            "Type": "TXT",
+            "Name": f"resend._domainkey.{domain}",
+            "Priority": 0,
+            "Value": public_key
+        })
+
+    return records
+
 def lambda_handler(event, context):
     try:
         # Log the incoming event for debugging
@@ -312,13 +383,37 @@ def lambda_handler(event, context):
                     "Name": domain,
                     "Priority": 10,
                     "Value": "inbound-smtp.us-east-1.amazonaws.com"
+                },
+                "SPF": {
+                    "Type": "TXT",
+                    "Name": domain,
+                    "Priority": 0,
+                    "Value": "v=spf1 include:amazonses.com ~all"
+                },
+                "DMARC": {
+                    "Type": "TXT",
+                    "Name": f"_dmarc.{domain}",
+                    "Priority": 0,
+                    "Value": f"v=DMARC1; p=none; rua=mailto:dmarc-reports@{domain}"
                 }
             }
+            
+            # Add public key if provided in the request
+            body = json.loads(event['body']) if event['body'] else {}
+            public_key = body.get('public_key') if body and isinstance(body, dict) else None
+            if public_key:
+                dns_records["PublicKey"] = {
+                    "Type": "TXT",
+                    "Name": domain,
+                    "Priority": 0,
+                    "Value": public_key
+                }
             
             if token:
                 dns_records["Verification"] = {
                     "Type": "TXT",
                     "Name": f"_amazonses.{domain}",
+                    "Priority": 0,
                     "Value": token
                 }
             
@@ -328,6 +423,7 @@ def lambda_handler(event, context):
                 dns_records[f"DKIM_{i+1}"] = {
                     "Type": "CNAME",
                     "Name": f"{dkim_token}._domainkey.{domain}",
+                    "Priority": 0,
                     "Value": f"{dkim_token}.dkim.amazonses.com"
                 }
             
@@ -524,41 +620,24 @@ def lambda_handler(event, context):
             # Get verification token (will only initiate new verification if needed)
             token = verify_domain(user_domain)
             
-            dns_records = {
-                "MX": {
-                    "Type": "MX",
-                    "Name": user_domain,
-                    "Priority": 10,
-                    "Value": "inbound-smtp.us-east-1.amazonaws.com"
-                },
-                "Verification": {
-                    "Type": "TXT",
-                    "Name": f"_amazonses.{user_domain}",
-                    "Value": token
-                }
-            }
-
-            # Add DKIM records
+            # Get DKIM tokens
             dkim_tokens = get_dkim_tokens(user_domain)
-
-            for i, dkim_token in enumerate(dkim_tokens):
-                dns_records[f"DKIM_{i+1}"] = {
-                    "Type": "CNAME",
-                    "Name": f"{dkim_token}._domainkey.{user_domain}",
-                    "Value": f"{dkim_token}.dkim.amazonses.com"
-                }
-
-            # if FUNCTION_API_URL is set, cattch the response and return it
-            # if os.environ.get('FUNCTION_API_URL'):
-            #     response = requests.post(os.environ.get('FUNCTION_API_URL') + f"/{user_domain}", json=data)
-            #     print(response.json())
+            
+            # Get public key if provided
+            public_key = body.get('public_key') if isinstance(body, dict) else None
+            
+            # Format DNS records
+            records = format_dns_records(user_domain, token, dkim_tokens, public_key)
    
             response_data = {
-                "domain": user_domain,
-                "webhook": webhook,
-                "dns_records": dns_records,
+                "object": "domain",
+                "id": str(uuid.uuid4()),  # Generate a unique ID
+                "name": user_domain,
                 "status": status.lower(),
-                "message": "DNS records verified successfully" if status == "Success" else "Verification pending"
+                "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "region": "us-east-1",
+                "records": records,
+                "webhook": webhook
             }
 
             return {
