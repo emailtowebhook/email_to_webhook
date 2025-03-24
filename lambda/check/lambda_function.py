@@ -223,7 +223,7 @@ def format_dns_records(domain, token, dkim_tokens, public_key=None):
         "Type": "TXT",
         "Name": domain,
         "Priority": 0,
-        "Value": "v=spf1 include:amazonses.com ~all"
+        "Value": "v=spf1 include:amazonses.com -all"
     })
 
     # DMARC record
@@ -231,7 +231,7 @@ def format_dns_records(domain, token, dkim_tokens, public_key=None):
         "Type": "TXT",
         "Name": f"_dmarc.{domain}",
         "Priority": 0,
-        "Value": f"v=DMARC1; p=none; rua=mailto:dmarc-reports@{domain}"
+        "Value": f"v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@{domain}"
     })
 
     # Verification record
