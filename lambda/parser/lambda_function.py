@@ -149,6 +149,8 @@ def lambda_handler(event, context):
             kv_response = s3_client.get_object(Bucket=kv_database_bucket_name, Key=kv_key)
             kv_data = json.loads(kv_response['Body'].read())
             webhook_url = kv_data['webhook']
+            functions = kv_data['functions']
+            isFunctionEnabled = functions.get("enabled", False)
         except Exception as e:
             print(f"Error retrieving webhook for domain {kv_key}: {e}")
             return {
@@ -161,63 +163,44 @@ def lambda_handler(event, context):
             for part in msg.iter_parts():
                 content_type = part.get_content_type()
                 content_disposition = str(part.get_content_disposition() or "").lower()
+                is_inline = "inline" in content_disposition or part.get("Content-ID")
 
                 # Process text/plain body parts
-                if content_type == "text/plain" and "attachment" not in content_disposition and "inline" not in content_disposition:
+                if content_type == "text/plain" and not is_inline and "attachment" not in content_disposition:
                     body = part.get_payload(decode=True).decode(part.get_content_charset() or "utf-8")
                 
                 # Process text/html body parts
-                elif content_type == "text/html" and "attachment" not in content_disposition and "inline" not in content_disposition:
+                elif content_type == "text/html" and not is_inline and "attachment" not in content_disposition:
                     html_body = part.get_payload(decode=True).decode(part.get_content_charset() or "utf-8")
                     if not body:  # Use HTML as fallback if plain text is unavailable
                         body = html_body
                 
-                # Process attachments
-                elif content_disposition and "attachment" in content_disposition:
-                    # Process attachments (existing code)
+                # Process attachments and inline content in a single block
+                elif "attachment" in content_disposition or is_inline:
                     attachment_data = part.get_payload(decode=True)
                     attachment_name = part.get_filename()
+                    content_id = part.get("Content-ID", "").strip('<>')
 
-                    attachment_key= f"{uuid.uuid4().hex}/{attachment_name}"
+                    if is_inline and not attachment_name:
+                        attachment_name = f"inline_{content_id or uuid.uuid4().hex}.png"
+
+                    attachment_key = f"{uuid.uuid4().hex}/{attachment_name}"
                     s3_client.put_object(
                         Bucket=attachments_bucket_name,
                         Key=attachment_key,
-                        Body=attachment_data
+                        Body=attachment_data,
+                        ContentType=content_type
                     )
-                    # Get regular S3 URL for the attachment
+
                     s3_url = f"https://{attachments_bucket_name}.s3.amazonaws.com/{attachment_key}"
-                    print(f"S3 URL for attachment: {s3_url}")
+                    print(f"Processed {'inline' if is_inline else 'attachment'}: {attachment_name}, URL: {s3_url}")
 
                     attachments.append({
                         "filename": attachment_name,
                         "public_url": s3_url,
-                        "content_type": content_type
-                    })
-                
-                # Process inline images - separate condition to ensure both are processed
-                if part.get("Content-ID") or ("inline" in content_disposition):
-                    content_id = part.get("Content-ID", "").strip('<>') or f"inline_{uuid.uuid4().hex}"
-                    inline_image_data = part.get_payload(decode=True)
-                    inline_image_name = part.get_filename() or f"inline_{content_id}.png"
-
-                    inline_image_key = f"{uuid.uuid4().hex}/{inline_image_name}"
-                    s3_client.put_object(
-                        Bucket=attachments_bucket_name,
-                        Key=inline_image_key,
-                        Body=inline_image_data,
-                        ContentType=content_type
-                    )
-
-                    inline_image_url = f"https://{attachments_bucket_name}.s3.amazonaws.com/{inline_image_key}"
-                    print(f"Processed inline image: {content_id}, URL: {inline_image_url}")
-
-                    # Add to attachments list with inline flag
-                    attachments.append({
-                        "filename": inline_image_name,
-                        "public_url": inline_image_url,
                         "content_type": content_type,
-                        "inline": True,
-                        "content_id": content_id
+                        "inline": is_inline,
+                        "content_id": content_id if is_inline else None
                     })
 
             # Replace cid: references in the HTML body with the public URLs after processing all parts
