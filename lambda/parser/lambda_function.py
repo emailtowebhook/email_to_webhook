@@ -149,8 +149,8 @@ def lambda_handler(event, context):
             kv_response = s3_client.get_object(Bucket=kv_database_bucket_name, Key=kv_key)
             kv_data = json.loads(kv_response['Body'].read())
             webhook_url = kv_data['webhook']
-            functions = kv_data['functions']
-            isFunctionEnabled = functions.get("enabled", False)
+            
+      
         except Exception as e:
             print(f"Error retrieving webhook for domain {kv_key}: {e}")
             return {
