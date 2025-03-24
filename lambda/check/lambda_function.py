@@ -179,6 +179,10 @@ def delete_domain(domain):
 def get_dkim_tokens(domain):
     """Get DKIM tokens for the domain from SES."""
     try:
+        # First verify DKIM for the domain
+        ses_client.verify_domain_dkim(Domain=domain)
+        
+        # Then get the DKIM tokens
         response = ses_client.get_identity_dkim_attributes(
             Identities=[domain]
         )
