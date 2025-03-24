@@ -128,7 +128,8 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
         Action = [
           "ses:VerifyDomainIdentity",
           "ses:GetIdentityVerificationAttributes",
-          "ses:DeleteIdentity"
+          "ses:DeleteIdentity",
+          "ses:GetIdentityDkimAttributes"
         ]
         Resource = "*"
       },
