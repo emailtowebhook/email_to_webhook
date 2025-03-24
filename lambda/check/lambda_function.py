@@ -176,6 +176,18 @@ def delete_domain(domain):
         print(f"Error in delete_domain operation for {domain}: {str(e)}")
         raise e
 
+def get_dkim_tokens(domain):
+    """Get DKIM tokens for the domain from SES."""
+    try:
+        response = ses_client.get_identity_dkim_attributes(
+            Identities=[domain]
+        )
+        if domain in response['DkimAttributes']:
+            return response['DkimAttributes'][domain]['DkimTokens']
+    except Exception as e:
+        print(f"Error getting DKIM tokens: {str(e)}")
+    return []
+
 def lambda_handler(event, context):
     try:
         # Log the incoming event for debugging
@@ -304,6 +316,15 @@ def lambda_handler(event, context):
                     "Type": "TXT",
                     "Name": f"_amazonses.{domain}",
                     "Value": token
+                }
+            
+            # Add DKIM records
+            dkim_tokens = get_dkim_tokens(domain)
+            for i, dkim_token in enumerate(dkim_tokens):
+                dns_records[f"DKIM_{i+1}"] = {
+                    "Type": "CNAME",
+                    "Name": f"{dkim_token}._domainkey.{domain}",
+                    "Value": f"{dkim_token}.dkim.amazonses.com"
                 }
             
             # Include status in response only if SES data was queried
@@ -498,7 +519,7 @@ def lambda_handler(event, context):
 
             # Get verification token (will only initiate new verification if needed)
             token = verify_domain(user_domain)
-
+            
             dns_records = {
                 "MX": {
                     "Type": "MX",
@@ -512,6 +533,16 @@ def lambda_handler(event, context):
                     "Value": token
                 }
             }
+
+            # Add DKIM records
+            dkim_tokens = get_dkim_tokens(user_domain)
+
+            for i, dkim_token in enumerate(dkim_tokens):
+                dns_records[f"DKIM_{i+1}"] = {
+                    "Type": "CNAME",
+                    "Name": f"{dkim_token}._domainkey.{user_domain}",
+                    "Value": f"{dkim_token}.dkim.amazonses.com"
+                }
 
             # if FUNCTION_API_URL is set, cattch the response and return it
             # if os.environ.get('FUNCTION_API_URL'):
