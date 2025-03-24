@@ -454,7 +454,8 @@ resource "aws_iam_role_policy" "lambda_ses_smtp_policy" {
         Action = [
           "ses:VerifyDomainIdentity",
           "ses:GetIdentityVerificationAttributes",
-          "ses:DeleteIdentity"
+          "ses:DeleteIdentity",
+          "ses:GetIdentityDkimAttributes"
         ]
         Resource = "*"
       },
