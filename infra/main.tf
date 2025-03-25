@@ -643,6 +643,10 @@ resource "aws_apigatewayv2_integration" "cloudflare_worker_function_integration"
   lifecycle {
     create_before_destroy = true
   }
+  
+  # This resource depends on our custom null_resource that handles route deletion
+  # This is only used during terraform destroy operations
+  depends_on = [null_resource.integration_dependency]
 }
 
 # API Gateway Routes for CRUD operations on functions
@@ -654,7 +658,8 @@ resource "aws_apigatewayv2_route" "post_function_route" {
 
   # Ensure route is destroyed before the integration
   lifecycle {
-    create_before_destroy = true
+    # Routes must be deleted before their integrations
+    prevent_destroy = false
   }
 }
 
@@ -666,7 +671,8 @@ resource "aws_apigatewayv2_route" "get_function_route" {
 
   # Ensure route is destroyed before the integration
   lifecycle {
-    create_before_destroy = true
+    # Routes must be deleted before their integrations
+    prevent_destroy = false
   }
 }
 
@@ -678,7 +684,8 @@ resource "aws_apigatewayv2_route" "delete_function_route" {
 
   # Ensure route is destroyed before the integration
   lifecycle {
-    create_before_destroy = true
+    # Routes must be deleted before their integrations
+    prevent_destroy = false
   }
 }
 
@@ -690,7 +697,8 @@ resource "aws_apigatewayv2_route" "put_function_route" {
 
   # Ensure route is destroyed before the integration
   lifecycle {
-    create_before_destroy = true
+    # Routes must be deleted before their integrations
+    prevent_destroy = false
   }
 }
 
