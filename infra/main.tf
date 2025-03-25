@@ -702,10 +702,5 @@ resource "aws_lambda_permission" "cloudflare_worker_function_api_gateway_permiss
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.lambda_api.execution_arn}/prod/*"
   
-  depends_on = [
-    aws_apigatewayv2_route.post_function_route,
-    aws_apigatewayv2_route.get_function_route,
-    aws_apigatewayv2_route.delete_function_route,
-    aws_apigatewayv2_route.put_function_route
-  ]
+ 
 }
