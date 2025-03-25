@@ -549,31 +549,31 @@ resource "aws_iam_role_policy" "lambda_s3_policy" {
   })
 }
 
-######### Deno Function Lambda #########
-resource "aws_lambda_function" "deno_function_lambda" {
-  function_name = "deno-function-handler"
-  role          = aws_iam_role.deno_lambda_exec.arn
-  handler       = "lambda_function.lambda_handler"
+######### Cloudflare Workers Function Lambda #########
+resource "aws_lambda_function" "cloudflare_worker_lambda" {
+  function_name = "cloudflare-worker-function-handler"
+  role          = aws_iam_role.cloudflare_worker_lambda_exec.arn
+  handler       = "cloudflare_worker_function.lambda_handler"
   runtime       = "python3.9"
-  filename      = var.deno_lambda_file_path # ZIP file path for the Deno lambda
+  filename      = var.cloudflare_worker_lambda_file_path # ZIP file path for the Cloudflare Workers lambda
   timeout       = 30
 
   # Detect changes in ZIP content
-  source_code_hash = filebase64sha256(var.deno_lambda_file_path)
+  source_code_hash = filebase64sha256(var.cloudflare_worker_lambda_file_path)
 
   environment {
     variables = {
       DATABASE_BUCKET_NAME = var.database_bucket_name
       ATTACHMENTS_BUCKET_NAME = var.attachments_bucket_name
-      DENO_API_KEY = var.deno_api_key
-      DENO_ORG_ID = var.deno_org_id
+      CLOUDFLARE_API_KEY = var.cloudflare_api_key
+      CLOUDFLARE_ACCOUNT_ID = var.cloudflare_account_id
     }
   }
 }
 
-# IAM role for Deno Function Lambda
-resource "aws_iam_role" "deno_lambda_exec" {
-  name = "deno_lambda_exec_role"
+# IAM role for Cloudflare Workers Function Lambda
+resource "aws_iam_role" "cloudflare_worker_lambda_exec" {
+  name = "cloudflare_worker_lambda_exec_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -589,10 +589,10 @@ resource "aws_iam_role" "deno_lambda_exec" {
   })
 }
 
-# IAM policy for Deno Function Lambda
-resource "aws_iam_role_policy" "deno_lambda_policy" {
-  name = "deno_lambda_policy"
-  role = aws_iam_role.deno_lambda_exec.name
+# IAM policy for Cloudflare Workers Function Lambda
+resource "aws_iam_role_policy" "cloudflare_worker_lambda_policy" {
+  name = "cloudflare_worker_lambda_policy"
+  role = aws_iam_role.cloudflare_worker_lambda_exec.name
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -627,16 +627,16 @@ resource "aws_iam_role_policy" "deno_lambda_policy" {
 }
 
 # Basic execution role policy attachment
-resource "aws_iam_role_policy_attachment" "deno_lambda_policy_attachment" {
-  role       = aws_iam_role.deno_lambda_exec.name
+resource "aws_iam_role_policy_attachment" "cloudflare_worker_lambda_policy_attachment" {
+  role       = aws_iam_role.cloudflare_worker_lambda_exec.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# API Gateway Integration with Deno Function Lambda
-resource "aws_apigatewayv2_integration" "deno_function_integration" {
+# API Gateway Integration with Cloudflare Workers Function Lambda
+resource "aws_apigatewayv2_integration" "cloudflare_worker_function_integration" {
   api_id           = aws_apigatewayv2_api.lambda_api.id
   integration_type = "AWS_PROXY"
-  integration_uri  = aws_lambda_function.deno_function_lambda.arn
+  integration_uri  = aws_lambda_function.cloudflare_worker_lambda.arn
   payload_format_version = "2.0"
 }
 
@@ -645,35 +645,35 @@ resource "aws_apigatewayv2_integration" "deno_function_integration" {
 resource "aws_apigatewayv2_route" "post_function_route" {
   api_id    = aws_apigatewayv2_api.lambda_api.id
   route_key = "POST /v1/functions/code/{domain}"
-  target    = "integrations/${aws_apigatewayv2_integration.deno_function_integration.id}"
+  target    = "integrations/${aws_apigatewayv2_integration.cloudflare_worker_function_integration.id}"
 }
 
 # GET - Retrieve function code
 resource "aws_apigatewayv2_route" "get_function_route" {
   api_id    = aws_apigatewayv2_api.lambda_api.id
   route_key = "GET /v1/functions/code/{domain}"
-  target    = "integrations/${aws_apigatewayv2_integration.deno_function_integration.id}"
+  target    = "integrations/${aws_apigatewayv2_integration.cloudflare_worker_function_integration.id}"
 }
 
 # DELETE - Remove function
 resource "aws_apigatewayv2_route" "delete_function_route" {
   api_id    = aws_apigatewayv2_api.lambda_api.id
   route_key = "DELETE /v1/functions/code/{domain}"
-  target    = "integrations/${aws_apigatewayv2_integration.deno_function_integration.id}"
+  target    = "integrations/${aws_apigatewayv2_integration.cloudflare_worker_function_integration.id}"
 }
 
 # PUT - Update function settings (enable/disable)
 resource "aws_apigatewayv2_route" "put_function_route" {
   api_id    = aws_apigatewayv2_api.lambda_api.id
   route_key = "PUT /v1/functions/code/{domain}"
-  target    = "integrations/${aws_apigatewayv2_integration.deno_function_integration.id}" 
+  target    = "integrations/${aws_apigatewayv2_integration.cloudflare_worker_function_integration.id}" 
 }
 
 # Lambda Permission for API Gateway
-resource "aws_lambda_permission" "deno_function_api_gateway_permission" {
-  statement_id  = "AllowDenofunctionAPIGatewayInvoke"
+resource "aws_lambda_permission" "cloudflare_worker_function_api_gateway_permission" {
+  statement_id  = "AllowCloudflareWorkerAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.deno_function_lambda.function_name
+  function_name = aws_lambda_function.cloudflare_worker_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.lambda_api.execution_arn}/prod/*"
 }

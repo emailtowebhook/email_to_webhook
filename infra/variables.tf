@@ -21,9 +21,9 @@ variable "parser_lambda_file_path" {
   type = string
 }
 
-variable "deno_lambda_file_path" {
-  description = "The path to the Deno function lambda file"
-  default = "../lambda_packages/deno_function.zip"
+variable "cloudflare_worker_lambda_file_path" {
+  description = "The path to the Cloudflare Workers function lambda file"
+  default = "../lambda_packages/lambda_function.zip"
   type = string
 }
 
@@ -52,14 +52,14 @@ variable "db_connection_string" {
   type        = string
 }
 
-variable "deno_org_id" {
-  description = "The Deno organization ID for deployment"
+variable "cloudflare_account_id" {
+  description = "The Cloudflare account ID for Workers deployment"
   type        = string
   default     = ""
 }
 
-variable "deno_api_key" {
-  description = "The Deno API key for authentication"
+variable "cloudflare_api_key" {
+  description = "The Cloudflare API key for authentication"
   type        = string
   default     = ""
 }

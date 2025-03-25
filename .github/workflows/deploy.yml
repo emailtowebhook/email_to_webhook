@@ -34,9 +34,9 @@ jobs:
         run: |
           cd lambda/parser && ./package.sh
 
-      - name: Package Deno Function Lambda function
+      - name: Package Cloudflare Worker Function Lambda function
         run: |
-          cd lambda/deno_function && ./package.sh
+          cd lambda/cloudflare_worker_function && ./package.sh
 
       - name: Terraform Init
         run: |
@@ -46,7 +46,7 @@ jobs:
       - name: Terraform Apply
         run: |
           cd infra
-          terraform apply -var="aws_account_id=${{ secrets.AWS_ACCOUNT_ID }}" -var="db_connection_string=${{ secrets.DB_CONNECTION_STRING }}" -var="deno_org_id=${{ secrets.DENO_ORG_ID }}" -var="deno_api_key=${{ secrets.DENO_API_KEY }}" -auto-approve
+          terraform apply -var="aws_account_id=${{ secrets.AWS_ACCOUNT_ID }}" -var="db_connection_string=${{ secrets.DB_CONNECTION_STRING }}" -var="cloudflare_api_key=${{ secrets.CLOUDFLARE_API_KEY }}" -var="cloudflare_account_id=${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" -auto-approve
 
       - name: Clean up Lambda packages
         run: |
