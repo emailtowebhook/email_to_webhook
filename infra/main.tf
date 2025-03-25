@@ -586,7 +586,7 @@ locals {
 resource "aws_lambda_function" "cloudflare_worker_lambda" {
   function_name = "cloudflare-worker-function-handler"
   role          = aws_iam_role.cloudflare_worker_lambda_exec.arn
-  handler       = "cloudflare_worker_function.lambda_handler"
+  handler       = "lambda_function.lambda_handler"
   runtime       = "python3.9"
   filename      = var.cloudflare_worker_lambda_file_path # ZIP file path for the Cloudflare Workers lambda
   timeout       = 30
