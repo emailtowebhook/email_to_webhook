@@ -13,12 +13,29 @@ import os
 import re
 import psycopg2
 from datetime import datetime
+import pystache  # Python implementation of Mustache.js
 
 # Initialize clients
 s3_client = boto3.client('s3')
 
 attachments_bucket_name = os.environ.get('ATTACHMENTS_BUCKET_NAME', 'email-attachments-bucket-3rfrd')
 kv_database_bucket_name = os.environ.get('DATABASE_BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
+
+def process_template(template, data):
+    """
+    Process a mustache-style template string using pystache (Mustache.js for Python).
+    
+    Args:
+        template (str): Template string with {{variable}} placeholders
+        data (dict): Dictionary containing values to replace placeholders
+        
+    Returns:
+        str: Processed string with variables replaced by their values
+    """
+    if not template or "{{" not in template:
+        return template
+    
+    return pystache.render(template, data)
 
 def save_email_to_database(email_data, webhook_url=None, webhook_response=None, webhook_status_code=None):
     """
@@ -237,6 +254,9 @@ def lambda_handler(event, context):
             "html_body": html_body if html_body else None,  # Include HTML body if available
             "attachments": attachments
         }
+
+        # Process webhook URL templates before sending
+        webhook_url = process_template(webhook_url, parsed_email)
 
         # Send HTTP POST request to the webhook
         try:
