@@ -183,6 +183,10 @@ resource "aws_iam_role_policy_attachment" "verify_domain_lambda_role_attachment"
 }
 
 # Lambda Function
+locals {
+  verify_lambda_hash = filebase64sha256(var.verify_lambda_file_path)
+}
+
 resource "aws_lambda_function" "verify_domain_lambda" {
   function_name = "verify-domain-lambda"
   filename      = var.verify_lambda_file_path
@@ -190,17 +194,26 @@ resource "aws_lambda_function" "verify_domain_lambda" {
   runtime       = "python3.9"
   role          = aws_iam_role.verify_domain_lambda_role.arn
 
-  source_code_hash = filebase64sha256(var.verify_lambda_file_path)
+  source_code_hash = local.verify_lambda_hash
 
   environment {
     variables = {
       DATABASE_BUCKET_NAME = var.database_bucket_name
       FUNCTION_API_URL = "${aws_apigatewayv2_api.lambda_api.api_endpoint}/prod/v1/functions/code/"
-  
+      CODE_VERSION = local.verify_lambda_hash  
     }
   }
 
   timeout = 20
+  
+  # Prevent Lambda replacement unless specific attributes change
+  lifecycle {
+    ignore_changes = [
+      # Ignore changes to tags and other metadata that don't affect functionality
+      tags,
+      description
+    ]
+  }
 }
 
 # API Gateway
@@ -378,6 +391,11 @@ resource "aws_s3_bucket_policy" "public_access_policy" {
  }
 
 ####3 parse email lambda
+locals {
+  # Calculate hash once to ensure consistency and avoid unnecessary Lambda redeployments
+  parser_lambda_hash = filebase64sha256(var.parser_lambda_file_path)
+}
+
 resource "aws_lambda_function" "parsing_lambda" {
   function_name = "email-parser-lambda-function"
   role          = aws_iam_role.lambda_exec.arn
@@ -385,8 +403,8 @@ resource "aws_lambda_function" "parsing_lambda" {
   runtime       = "python3.9"
   filename      = var.parser_lambda_file_path # Directly reference the ZIP file
 
-  # Detect changes in ZIP content
-  source_code_hash = filebase64sha256(var.parser_lambda_file_path)
+  # Use the pre-calculated hash from locals
+  source_code_hash = local.parser_lambda_hash
   timeout = 20
 
   environment {
@@ -395,7 +413,18 @@ resource "aws_lambda_function" "parsing_lambda" {
       ATTACHMENTS_BUCKET_NAME = var.attachments_bucket_name
       DB_CONNECTION_STRING = var.db_connection_string
       FUNCTION_API_URL = "${aws_apigatewayv2_api.lambda_api.api_endpoint}/prod/v1/functions/code/"
+      # Add a marker to track deployments - only changes when code actually changes
+      CODE_VERSION = local.parser_lambda_hash
     }
+  }
+  
+  # Prevent Lambda replacement unless specific attributes change
+  lifecycle {
+    ignore_changes = [
+      # Ignore changes to tags and other metadata that don't affect functionality
+      tags,
+      description
+    ]
   }
 }
 
@@ -549,6 +578,11 @@ resource "aws_iam_role_policy" "lambda_s3_policy" {
 }
 
 ######### Cloudflare Workers Function Lambda #########
+locals {
+  # Calculate hash once for the Cloudflare worker Lambda
+  cloudflare_worker_lambda_hash = filebase64sha256(var.cloudflare_worker_lambda_file_path)
+}
+
 resource "aws_lambda_function" "cloudflare_worker_lambda" {
   function_name = "cloudflare-worker-function-handler"
   role          = aws_iam_role.cloudflare_worker_lambda_exec.arn
@@ -557,8 +591,8 @@ resource "aws_lambda_function" "cloudflare_worker_lambda" {
   filename      = var.cloudflare_worker_lambda_file_path # ZIP file path for the Cloudflare Workers lambda
   timeout       = 30
 
-  # Detect changes in ZIP content
-  source_code_hash = filebase64sha256(var.cloudflare_worker_lambda_file_path)
+  # Use the pre-calculated hash
+  source_code_hash = local.cloudflare_worker_lambda_hash
 
   environment {
     variables = {
@@ -566,7 +600,18 @@ resource "aws_lambda_function" "cloudflare_worker_lambda" {
       ATTACHMENTS_BUCKET_NAME = var.attachments_bucket_name
       CLOUDFLARE_API_KEY = var.cloudflare_api_key
       CLOUDFLARE_ACCOUNT_ID = var.cloudflare_account_id
+      # Add a marker to track deployments - only changes when code actually changes
+      CODE_VERSION = local.cloudflare_worker_lambda_hash
     }
+  }
+  
+  # Prevent Lambda replacement unless specific attributes change
+  lifecycle {
+    ignore_changes = [
+      # Ignore changes to tags and other metadata that don't affect functionality
+      tags,
+      description
+    ]
   }
 }
 
