@@ -75,7 +75,7 @@ def update_worker_script(worker_name, code):
     url = f"{CLOUDFLARE_API_BASE}/accounts/{CLOUDFLARE_ACCOUNT_ID}/workers/scripts/{worker_name}"
     headers = {
         "Authorization": f"Bearer {CLOUDFLARE_API_KEY}",
-        "Content-Type": "application/javascript"
+        "Content-Type": "application/javascript+module"
     }
     
     # Default code if none provided
