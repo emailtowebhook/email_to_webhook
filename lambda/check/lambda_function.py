@@ -398,16 +398,6 @@ def lambda_handler(event, context):
                 }
             }
             
-            # Add public key if provided in the request
-            body = json.loads(event['body']) if event['body'] else {}
-            public_key = body.get('public_key') if body and isinstance(body, dict) else None
-            if public_key:
-                dns_records["PublicKey"] = {
-                    "Type": "TXT",
-                    "Name": domain,
-                    "Priority": 0,
-                    "Value": public_key
-                }
             
             if token:
                 dns_records["Verification"] = {
