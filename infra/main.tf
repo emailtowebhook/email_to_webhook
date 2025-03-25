@@ -638,6 +638,11 @@ resource "aws_apigatewayv2_integration" "cloudflare_worker_function_integration"
   integration_type = "AWS_PROXY"
   integration_uri  = aws_lambda_function.cloudflare_worker_lambda.arn
   payload_format_version = "2.0"
+
+  # Lifecycle to ensure proper destruction order
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # API Gateway Routes for CRUD operations on functions
@@ -646,6 +651,11 @@ resource "aws_apigatewayv2_route" "post_function_route" {
   api_id    = aws_apigatewayv2_api.lambda_api.id
   route_key = "POST /v1/functions/code/{domain}"
   target    = "integrations/${aws_apigatewayv2_integration.cloudflare_worker_function_integration.id}"
+
+  # Ensure route is destroyed before the integration
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # GET - Retrieve function code
@@ -653,6 +663,11 @@ resource "aws_apigatewayv2_route" "get_function_route" {
   api_id    = aws_apigatewayv2_api.lambda_api.id
   route_key = "GET /v1/functions/code/{domain}"
   target    = "integrations/${aws_apigatewayv2_integration.cloudflare_worker_function_integration.id}"
+
+  # Ensure route is destroyed before the integration
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # DELETE - Remove function
@@ -660,6 +675,11 @@ resource "aws_apigatewayv2_route" "delete_function_route" {
   api_id    = aws_apigatewayv2_api.lambda_api.id
   route_key = "DELETE /v1/functions/code/{domain}"
   target    = "integrations/${aws_apigatewayv2_integration.cloudflare_worker_function_integration.id}"
+
+  # Ensure route is destroyed before the integration
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # PUT - Update function settings (enable/disable)
@@ -667,6 +687,11 @@ resource "aws_apigatewayv2_route" "put_function_route" {
   api_id    = aws_apigatewayv2_api.lambda_api.id
   route_key = "PUT /v1/functions/code/{domain}"
   target    = "integrations/${aws_apigatewayv2_integration.cloudflare_worker_function_integration.id}" 
+
+  # Ensure route is destroyed before the integration
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # Lambda Permission for API Gateway
