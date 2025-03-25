@@ -201,7 +201,6 @@ resource "aws_lambda_function" "verify_domain_lambda" {
   }
 
   timeout = 20
-  depends_on = [aws_apigatewayv2_route.post_function_route]
 }
 
 # API Gateway
@@ -397,7 +396,6 @@ resource "aws_lambda_function" "parsing_lambda" {
       FUNCTION_API_URL = "${aws_apigatewayv2_api.lambda_api.api_endpoint}/prod/v1/functions/code/"
     }
   }
-  depends_on = [aws_apigatewayv2_route.post_function_route]
 }
 
 resource "aws_iam_role" "lambda_exec" {
@@ -644,9 +642,12 @@ resource "aws_apigatewayv2_integration" "cloudflare_worker_function_integration"
     create_before_destroy = true
   }
   
-  # This resource depends on our custom null_resource that handles route deletion
-  # This is only used during terraform destroy operations
-  depends_on = [null_resource.integration_dependency]
+  # Using our prerequisite resource that doesn't create a circular dependency
+  depends_on = [
+    aws_lambda_function.cloudflare_worker_lambda,
+    aws_apigatewayv2_api.lambda_api,
+    null_resource.integration_prerequisite
+  ]
 }
 
 # API Gateway Routes for CRUD operations on functions
