@@ -22,8 +22,8 @@ variable "parser_lambda_file_path" {
 }
 
 variable "cloudflare_worker_lambda_file_path" {
-  description = "The path to the Cloudflare Workers function lambda file"
-  default = "../lambda_packages/lambda_function.zip"
+  description = "The path to the Cloudflare worker lambda file"
+  default = "../lambda_packages/cloudflare_worker_function.zip"
   type = string
 }
 
