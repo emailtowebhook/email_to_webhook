@@ -208,58 +208,58 @@ def get_public_key(domain):
 
 def format_dns_records(domain, token, dkim_tokens, public_key=None):
     """Format DNS records in a structured way."""
-    records = []
+    records = {}
     
     # MX record
-    records.append({
+    records["MX"] = {
         "Type": "MX",
         "Name": domain,
         "Priority": 10,
         "Value": "inbound-smtp.us-east-1.amazonaws.com"
-    })
+    }
     
     # SPF record
-    records.append({
+    records["SPF"] = {
         "Type": "TXT",
         "Name": domain,
         "Priority": 0,
         "Value": "v=spf1 include:amazonses.com -all"
-    })
+    }
 
     # DMARC record
-    records.append({
+    records["DMARC"] = {
         "Type": "TXT",
         "Name": f"_dmarc.{domain}",
         "Priority": 0,
         "Value": f"v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@{domain}"
-    })
+    }
 
     # Verification record
     if token:
-        records.append({
+        records["Verification"] = {
             "Type": "TXT",
             "Name": f"_amazonses.{domain}",
             "Priority": 0,
             "Value": token
-        })
+        }
 
     # DKIM records
-    for dkim_token in dkim_tokens:
-        records.append({
+    for i, dkim_token in enumerate(dkim_tokens):
+        records[f"DKIM_{i+1}"] = {
             "Type": "CNAME",
             "Name": f"{dkim_token}._domainkey.{domain}",
             "Priority": 0,
             "Value": f"{dkim_token}.dkim.amazonses.com"
-        })
+        }
 
     # Custom DKIM if provided
     if public_key:
-        records.append({
+        records["CustomDKIM"] = {
             "Type": "TXT",
             "Name": f"resend._domainkey.{domain}",
             "Priority": 0,
             "Value": public_key
-        })
+        }
 
     return records
 
@@ -376,46 +376,13 @@ def lambda_handler(event, context):
                 except Exception as e:
                     print(f"Error fetching SES data: {str(e)}")
             
+            # Get DKIM tokens
+            dkim_tokens = []
+            if not ignoreSesData:
+                dkim_tokens = get_dkim_tokens(domain)
+            
             # Prepare DNS records information
-            dns_records = {
-                "MX": {
-                    "Type": "MX",
-                    "Name": domain,
-                    "Priority": 10,
-                    "Value": "inbound-smtp.us-east-1.amazonaws.com"
-                },
-                "SPF": {
-                    "Type": "TXT",
-                    "Name": domain,
-                    "Priority": 0,
-                    "Value": "v=spf1 include:amazonses.com ~all"
-                },
-                "DMARC": {
-                    "Type": "TXT",
-                    "Name": f"_dmarc.{domain}",
-                    "Priority": 0,
-                    "Value": f"v=DMARC1; p=none; rua=mailto:dmarc-reports@{domain}"
-                }
-            }
-            
-            
-            if token:
-                dns_records["Verification"] = {
-                    "Type": "TXT",
-                    "Name": f"_amazonses.{domain}",
-                    "Priority": 0,
-                    "Value": token
-                }
-            
-            # Add DKIM records
-            dkim_tokens = get_dkim_tokens(domain)
-            for i, dkim_token in enumerate(dkim_tokens):
-                dns_records[f"DKIM_{i+1}"] = {
-                    "Type": "CNAME",
-                    "Name": f"{dkim_token}._domainkey.{domain}",
-                    "Priority": 0,
-                    "Value": f"{dkim_token}.dkim.amazonses.com"
-                }
+            dns_records = format_dns_records(domain, token, dkim_tokens)
             
             # Include status in response only if SES data was queried
             response_data = {**s3_data}
