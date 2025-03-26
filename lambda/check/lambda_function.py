@@ -626,7 +626,7 @@ def lambda_handler(event, context):
                 "status": status.lower(),
                 "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "region": "us-east-1",
-                "records": records,
+                "dns_records": records,
                 "webhook": webhook
             }
 
