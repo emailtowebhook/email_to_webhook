@@ -68,7 +68,7 @@ Once verified, emails to `anything@yourdomain.com` will be sent to your webhook 
 
 If you encounter issues or have questions:
 
-1. Check existing GitHub Issues first
+1. Check existing [GitHub Issues](https://github.com/emailtowebhook/emailtowebhook/issues) first
 2. Open a new Issue with:
    - Clear description of the problem
    - Steps to reproduce
@@ -82,4 +82,4 @@ For security concerns, please report them directly to maintainers rather than op
 - **LinkedIn**: [Yakir Perlin](https://www.linkedin.com/in/yakirperlin/)
 - **Twitter**: [@yakirbipbip](https://x.com/yakirbipbip)
 
-Licensed under MIT. For issues or ideas, please use [GitHub Issues](https://github.com/emailtowebhook/emailtowebhook/issues)
+Licensed under MIT.
