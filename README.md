@@ -1,176 +1,61 @@
-# Open-Source Email to Webhook Service
+# Email to Webhook Service
 
-An open-source solution that seamlessly transforms incoming emails into webhook notifications. Perfect for automated workflows, real-time email processing, and integration with external services.
+Transforms emails into webhook notifications with attachment handling via AWS.
 
-## ✨ Features
+## Cloud Version
 
-🔹 **Domain Registration** – Easily register domains and link them to webhook endpoints.  
-🔹 **Email Forwarding** – Automatically process and forward incoming emails to registered webhooks.  
-🔹 **Attachment Handling** – Store attachments in Amazon S3 and generate accessible public URLs.  
-🔹 **DNS Configuration** – Automates DNS verification for SES domain setup.  
-🔹 **Serverless Architecture** – Built for scale, security, and cost efficiency.
+A hosted version of this service is available at [emailtowebhook.com](https://emailtowebhook.com/dashboard).
 
----
+## Features
 
-## 🚀 Quick Deployment
+- Domain registration with webhook endpoints
+- Email forwarding to webhooks
+- S3 attachment storage
+- Automated DNS verification
+- Serverless architecture
 
-Deploy the service with a single command from the root directory:
+## Deployment with GitHub Actions
 
-```sh
-./deploy.sh
-```
+1. Fork/clone this repository
+2. Set required repository secrets:
+   - `AWS_ACCESS_KEY_ID`: Your AWS access key
+   - `AWS_SECRET_ACCESS_KEY`: Your AWS secret key
+   - `AWS_ACCOUNT_ID`: Your AWS account ID
+   - `DB_CONNECTION_STRING`: Optional - for external database (emails are stored in AWS by default)
 
----
+Deployment runs automatically on pushes to main branch or can be triggered manually from Actions tab.
 
-## 🔧 Prerequisites
+## Using the API
 
-Before you start, ensure you have the following tools installed:
-
-### 🛠 1. AWS CLI
-
-Used for authentication and interaction with AWS services.
-
-#### Install AWS CLI:
+### Register Domain
 
 ```sh
-# Linux/macOS
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-sudo ./aws/install
-
-# Windows
-# Download the installer: https://awscli.amazonaws.com/AWSCLIV2.msi
+curl -X POST '<api_gateway_url>/v1/domain/yourdomain.com' -H 'Content-Type: application/json' -d '{"webhook": "https://your-webhook-endpoint.com/path"}'
 ```
 
-#### Configure AWS CLI:
-
-```sh
-aws configure
-```
-
----
-
-### 🏗 2. Terraform
-
-Infrastructure-as-Code tool for provisioning AWS resources.
-
-#### Install Terraform:
-
-```sh
-# Linux
-wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-sudo apt update && sudo apt install terraform
-
-# macOS
-brew tap hashicorp/tap
-brew install hashicorp/tap/terraform
-
-# Windows
-# Download: https://developer.hashicorp.com/terraform/downloads
-```
-
-#### Verify installation:
-
-```sh
-terraform --version
-```
-
----
-
-### 📂 3. S3 Bucket for Terraform State
-
-Terraform requires an S3 bucket to store state files.
-
-#### Create an S3 bucket:
-
-```sh
-aws s3 mb s3://my-terraform-state-bucket --region us-east-1
-```
-
-#### Configure Terraform backend in `provider.tf`:
-
-```hcl
-terraform {
-  backend "s3" {
-    bucket = "my-terraform-state-bucket"
-    key    = "terraform.tfstate"
-    region = "us-east-1"
-  }
-}
-
-provider "aws" {
-  region = var.aws_region
-}
-```
-
-Replace `my-terraform-state-bucket` with your actual bucket name.
-
----
-
-## 🚀 Using the API
-
-The API allows you to manage domain configurations for email webhook forwarding through simple RESTful endpoints.
-
-### 1. Register a New Domain
-
-```sh
-curl -X POST '<api_gateway_url>/v1/domain/yourdomain.com' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "webhook": "https://your-webhook-endpoint.com/path"
-  }'
-```
-
-Upon successful registration, you'll receive DNS configuration instructions that need to be added to your domain's DNS settings.
-
-### 2. Get Domain Status
-
-Check the verification status and configuration details for a domain:
+### Get Domain Status
 
 ```sh
 curl -X GET '<api_gateway_url>/v1/domain/yourdomain.com'
 ```
 
-This returns information about your domain's verification status, DKIM setup, and webhook configuration.
-
-### 3. Update Domain Configuration
-
-Change the webhook URL or other configuration details:
+### Update Domain
 
 ```sh
-curl -X PUT '<api_gateway_url>/v1/domain/yourdomain.com' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "webhook": "https://your-new-webhook-endpoint.com/path"
-  }'
+curl -X PUT '<api_gateway_url>/v1/domain/yourdomain.com' -H 'Content-Type: application/json' -d '{"webhook": "https://your-new-webhook-endpoint.com/path"}'
 ```
 
-### 4. Delete Domain Configuration
-
-Remove a domain from the system:
+### Delete Domain
 
 ```sh
 curl -X DELETE '<api_gateway_url>/v1/domain/yourdomain.com'
 ```
 
-### Email Processing
+Once verified, emails to `anything@yourdomain.com` will be sent to your webhook as JSON with S3 attachment links.
 
-Once your domain is verified, any email sent to any address at your domain (e.g., `anything@yourdomain.com`) will be processed and forwarded to your registered webhook URL as a JSON payload with attachment links stored in S3.
+## Connect
 
----
+- **LinkedIn**: [Yakir Perlin](https://www.linkedin.com/in/yakirperlin/)
+- **Twitter**: [@yakirbipbip](https://x.com/yakirbipbip)
 
-## 👋 Connect with Me
-
-💼 **LinkedIn**: [Yakir Perlin](https://www.linkedin.com/in/yakirperlin/)  
-𝕏: [@yakirbipbip](https://x.com/yakirbipbip)
-
----
-
-## 📜 License
-
-Licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
-
----
-
-💡 **Have questions or ideas?** Open an issue or start a discussion on [GitHub](https://github.com/emailtowebhook/emailtowebhook/issues)
+Licensed under MIT. For issues or ideas, please use [GitHub Issues](https://github.com/emailtowebhook/emailtowebhook/issues)
