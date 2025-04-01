@@ -53,6 +53,30 @@ curl -X DELETE '<api_gateway_url>/v1/domain/yourdomain.com'
 
 Once verified, emails to `anything@yourdomain.com` will be sent to your webhook as JSON with S3 attachment links.
 
+## Contributing and Support
+
+### How to Contribute
+
+1. Fork the repository
+2. Create a new branch (`git checkout -b feature/your-feature`)
+3. Make your changes
+4. Commit your changes (`git commit -m 'Add some feature'`)
+5. Push to the branch (`git push origin feature/your-feature`)
+6. Open a Pull Request
+
+### Getting Support
+
+If you encounter issues or have questions:
+
+1. Check existing GitHub Issues first
+2. Open a new Issue with:
+   - Clear description of the problem
+   - Steps to reproduce
+   - Expected vs actual behavior
+   - System information (AWS region, etc.)
+
+For security concerns, please report them directly to maintainers rather than opening public issues.
+
 ## Connect
 
 - **LinkedIn**: [Yakir Perlin](https://www.linkedin.com/in/yakirperlin/)
