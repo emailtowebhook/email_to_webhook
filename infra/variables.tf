@@ -21,13 +21,6 @@ variable "parser_lambda_file_path" {
   type = string
 }
 
-variable "cloudflare_worker_lambda_file_path" {
-  description = "The path to the Cloudflare worker lambda file"
-  default = "../lambda_packages/cloudflare_worker_function.zip"
-  type = string
-}
-
-
 variable "database_bucket_name" {
   description = "The name of the S3 bucket for email webhooks, act as KV store"
   default     = "email-to-webhook-kv-database"
@@ -50,18 +43,6 @@ variable "db_connection_string" {
   description = "The PostgreSQL database connection string for email storage"
   default     = ""
   type        = string
-}
-
-variable "cloudflare_account_id" {
-  description = "The Cloudflare account ID for Workers deployment"
-  type        = string
-  default     = ""
-}
-
-variable "cloudflare_api_key" {
-  description = "The Cloudflare API key for authentication"
-  type        = string
-  default     = ""
 }
 
 

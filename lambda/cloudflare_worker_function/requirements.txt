@@ -1,4 +1,0 @@
-boto3
-requests
-aws-psycopg2
-pystache
