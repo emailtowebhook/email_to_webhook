@@ -29,19 +29,19 @@ Deployment runs automatically on pushes to main branch or can be triggered manua
 
 ### Register Domain
 
-```sh
+```curl
 curl -X POST '<api_gateway_url>/v1/domain/yourdomain.com' -H 'Content-Type: application/json' -d '{"webhook": "https://your-webhook-endpoint.com/path"}'
 ```
 
 ### Get Domain Status
 
-```sh
+```curl
 curl -X GET '<api_gateway_url>/v1/domain/yourdomain.com'
 ```
 
 ### Update Domain
 
-```sh
+```cmd
 curl -X PUT '<api_gateway_url>/v1/domain/yourdomain.com' -H 'Content-Type: application/json' -d '{"webhook": "https://your-new-webhook-endpoint.com/path"}'
 ```
 
