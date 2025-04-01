@@ -21,7 +21,7 @@ A hosted version of this service is available at [emailtowebhook.com](https://em
    - `AWS_ACCESS_KEY_ID`: Your AWS access key
    - `AWS_SECRET_ACCESS_KEY`: Your AWS secret key
    - `AWS_ACCOUNT_ID`: Your AWS account ID
-   - `DB_CONNECTION_STRING`: Optional - for external database (emails are stored in AWS by default)
+   - `DB_CONNECTION_STRING`: Optional - for external database
 
 Deployment runs automatically on pushes to main branch or can be triggered manually from Actions tab.
 
