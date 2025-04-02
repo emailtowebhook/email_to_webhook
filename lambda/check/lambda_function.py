@@ -206,7 +206,7 @@ def get_public_key(domain):
         print(f"Error getting public key: {str(e)}")
         return ""
 
-def format_dns_records(domain, token, dkim_tokens, public_key=None):
+def format_dns_records(domain, token, dkim_tokens, public_key=None, return_all=False):
     """Format DNS records in a structured way."""
     records = {}
     
@@ -226,6 +226,9 @@ def format_dns_records(domain, token, dkim_tokens, public_key=None):
         "Value": "v=spf1 include:amazonses.com -all"
     }
 
+    # If return_all is False, only return the required records
+    if not return_all:
+        return records
     # DMARC record
     records["DMARC"] = {
         "Type": "TXT",
