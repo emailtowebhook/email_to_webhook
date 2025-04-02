@@ -217,26 +217,6 @@ def format_dns_records(domain, token, dkim_tokens, public_key=None, return_all=F
         "Priority": 10,
         "Value": "inbound-smtp.us-east-1.amazonaws.com"
     }
-    
-    # SPF record
-    records["SPF"] = {
-        "Type": "TXT",
-        "Name": domain,
-        "Priority": 0,
-        "Value": "v=spf1 include:amazonses.com -all"
-    }
-
-    # If return_all is False, only return the required records
-    if not return_all:
-        return records
-    # DMARC record
-    records["DMARC"] = {
-        "Type": "TXT",
-        "Name": f"_dmarc.{domain}",
-        "Priority": 0,
-        "Value": f"v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@{domain}"
-    }
-
     # Verification record
     if token:
         records["Verification"] = {
@@ -245,6 +225,26 @@ def format_dns_records(domain, token, dkim_tokens, public_key=None, return_all=F
             "Priority": 0,
             "Value": token
         }
+
+    # If return_all is False, only return the required records
+    if not return_all:
+        return records
+    
+     # SPF record
+    records["SPF"] = {
+        "Type": "TXT",
+        "Name": domain,
+        "Priority": 0,
+        "Value": "v=spf1 include:amazonses.com -all"
+    }
+
+    # DMARC record
+    records["DMARC"] = {
+        "Type": "TXT",
+        "Name": f"_dmarc.{domain}",
+        "Priority": 0,
+        "Value": f"v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@{domain}"
+    }
 
     # DKIM records
     for i, dkim_token in enumerate(dkim_tokens):
