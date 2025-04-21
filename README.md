@@ -17,11 +17,11 @@ A hosted version of this service is available at [emailtowebhook.com](https://em
 ## Deployment with GitHub Actions
 
 1. Fork/clone this repository
-2. Set required repository secrets:
-   - `AWS_ACCESS_KEY_ID`: Your AWS access key
-   - `AWS_SECRET_ACCESS_KEY`: Your AWS secret key
-   - `AWS_ACCOUNT_ID`: Your AWS account ID
-   - `DB_CONNECTION_STRING`: Optional - for external database
+2. Set repository secrets (the first three are required, the last is optional):
+   - `AWS_ACCESS_KEY_ID`: (required) Your AWS access key
+   - `AWS_SECRET_ACCESS_KEY`: (required) Your AWS secret key
+   - `AWS_ACCOUNT_ID`: (required) Your AWS account ID
+   - `DB_CONNECTION_STRING`: (optional) Only needed if you use an external database to save email. Not required for standard deployments.
 
 Deployment runs automatically on pushes to main branch or can be triggered manually from Actions tab.
 
