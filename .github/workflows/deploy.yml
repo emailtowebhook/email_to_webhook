@@ -26,7 +26,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DB_CONNECTION_STRING }}
         run: |
           npx prisma generate
-          npx prisma db push
+          npx prisma db push --schema-only --accept-data-loss
 
   deploy:
     runs-on: ubuntu-latest
