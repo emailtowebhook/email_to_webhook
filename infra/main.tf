@@ -95,20 +95,27 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
         Action = [
           "ses:VerifyDomainIdentity",
           "ses:VerifyDomainDkim",
-          "ses:GetIdentityVerificationAttributes",
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
           "s3:PutObject",
           "s3:DeleteObject"
         ],
-        # Restrict to SES identities or IAM SMTP users
         Resource = [
           "arn:aws:ses:${var.aws_region}:${var.aws_account_id}:identity/*",
           "arn:aws:iam::${var.aws_account_id}:user/smtp-*"
         ]
       },
-       # Existing S3 Permissions
+      # Remove the wildcard permission statement and replace with this
+      {
+        Effect = "Allow",
+        Action = [
+          "ses:GetIdentityVerificationAttributes",
+          "ses:ListIdentities"
+        ],
+        Resource = "arn:aws:ses:${var.aws_region}:${var.aws_account_id}:*"
+      },
+      # Existing S3 Permissions
       {
         Effect = "Allow"
         Action = [
@@ -155,8 +162,6 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
           "iam:CreateUser",
           "iam:PutUserPolicy",
           "iam:CreateAccessKey",
-          "ses:ListIdentities",
-          "ses:GetIdentityVerificationAttributes",
           "iam:ListAccessKeys"
         ]
         Resource = [
@@ -186,11 +191,7 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
         Action = [
           "iam:GetUser"
         ]
-        # Restrict to SES identities or IAM SMTP users
-        Resource = [
-          "arn:aws:ses:${var.aws_region}:${var.aws_account_id}:identity/*",
-          "arn:aws:iam::${var.aws_account_id}:user/smtp-*"
-        ]
+        Resource = "arn:aws:iam::${var.aws_account_id}:user/smtp-*"
       }
     ]
   })
@@ -493,20 +494,26 @@ resource "aws_iam_role_policy" "lambda_ses_smtp_policy" {
         ]
         Resource = "arn:aws:logs:*:*:*"
       },
-      # SES Permissions
+      # SES Permissions for specific actions
       {
         Effect = "Allow"
         Action = [
           "ses:VerifyDomainIdentity",
-          "ses:GetIdentityVerificationAttributes",
           "ses:DeleteIdentity",
           "ses:GetIdentityDkimAttributes"
         ]
-        # Restrict to SES identities or IAM SMTP users
         Resource = [
-          "arn:aws:ses:${var.aws_region}:${var.aws_account_id}:identity/*",
-          "arn:aws:iam::${var.aws_account_id}:user/smtp-*"
+          "arn:aws:ses:${var.aws_region}:${var.aws_account_id}:identity/*"
         ]
+      },
+      # SES Permissions for verification operations
+      {
+        Effect = "Allow"
+        Action = [
+          "ses:GetIdentityVerificationAttributes",
+          "ses:ListIdentities"
+        ]
+        Resource = "arn:aws:ses:${var.aws_region}:${var.aws_account_id}:*"
       },
       # SMTP User Creation Permissions
       {
@@ -515,8 +522,6 @@ resource "aws_iam_role_policy" "lambda_ses_smtp_policy" {
           "iam:CreateUser",
           "iam:PutUserPolicy",
           "iam:CreateAccessKey",
-          "ses:ListIdentities",
-          "ses:GetIdentityVerificationAttributes",
           "iam:ListAccessKeys"
         ]
         Resource = [
@@ -546,11 +551,7 @@ resource "aws_iam_role_policy" "lambda_ses_smtp_policy" {
         Action = [
           "iam:GetUser"
         ]
-        # Restrict to SES identities or IAM SMTP users
-        Resource = [
-          "arn:aws:ses:${var.aws_region}:${var.aws_account_id}:identity/*",
-          "arn:aws:iam::${var.aws_account_id}:user/smtp-*"
-        ]
+        Resource = "arn:aws:iam::${var.aws_account_id}:user/smtp-*"
       }
     ]
   })
