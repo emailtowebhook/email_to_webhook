@@ -1,0 +1,29 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ParsedEmail {
+  id                    String    @id @default(uuid()) @db.Uuid
+  domain                String
+  localPart             String    @map("local_part")
+  emailId               String    @map("email_id")
+  isFunctionCalled      Boolean   @default(false) @map("is_function_called")
+  functionRunId         String?   @map("function_run_id")
+  functionUrl           String?   @map("function_url")
+  functionResponse      String?   @map("function_response")
+  functionStatusCode    Int?      @map("function_status_code")
+  isWebhookSent         Boolean   @default(false) @map("is_webhook_sent")
+  webhookUrl            String?   @map("webhook_url")
+  webhookPayload        Json?     @map("webhook_payload")
+  webhookResponse       String?   @map("webhook_response")
+  webhookStatusCode     Int?      @map("webhook_status_code")
+  emailData             Json
+  createdAt             DateTime  @default(now()) @map("createdAt")
+
+  @@map("ParsedEmail")
+} 
