@@ -8,22 +8,20 @@ datasource db {
 }
 
 model ParsedEmail {
-  id                    String    @id @default(uuid()) @db.Uuid
-  domain                String
-  localPart             String    @map("local_part")
-  emailId               String    @map("email_id")
-  isFunctionCalled      Boolean   @default(false) @map("is_function_called")
-  functionRunId         String?   @map("function_run_id")
-  functionUrl           String?   @map("function_url")
-  functionResponse      String?   @map("function_response")
-  functionStatusCode    Int?      @map("function_status_code")
-  isWebhookSent         Boolean   @default(false) @map("is_webhook_sent")
-  webhookUrl            String?   @map("webhook_url")
-  webhookPayload        Json?     @map("webhook_payload")
-  webhookResponse       String?   @map("webhook_response")
-  webhookStatusCode     Int?      @map("webhook_status_code")
-  emailData             Json
-  createdAt             DateTime  @default(now()) @map("createdAt")
-
-  @@map("ParsedEmail")
-} 
+  id           String   @id @default(uuid())
+  domain       String   // The domain part of the recipient address
+  local_part   String   // The local part of the recipient address
+  email_id     String   // Full email address identifier
+  is_function_called Boolean @default(false)
+  function_run_id String? // The ID of the function that was called
+  function_url String? // The URL of the function to call
+  function_response String? // The response from the function
+  function_status_code Int? // The status code from the function
+  is_webhook_sent Boolean @default(false)
+  webhook_url  String?   // The webhook URL to send the email data to
+  webhook_payload Json? // The payload to send to the webhook
+  webhook_response String? // The response from the webhook
+  webhook_status_code Int? // The status code from the webhook
+  email_data   Json  // JSON string storing additional email data
+  createdAt    DateTime @default(now())
+}
