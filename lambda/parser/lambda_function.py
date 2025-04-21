@@ -14,12 +14,47 @@ import re
 import psycopg2
 from datetime import datetime
 import pystache  # Python implementation of Mustache.js
+import ipaddress
+from urllib.parse import urlparse
 
 # Initialize clients
 s3_client = boto3.client('s3')
 
 attachments_bucket_name = os.environ.get('ATTACHMENTS_BUCKET_NAME', 'email-attachments-bucket-3rfrd')
 kv_database_bucket_name = os.environ.get('DATABASE_BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
+
+
+def validate_webhook_url(url):
+    """
+    Strictly validate the webhook URL to prevent SSRF attacks.
+    - Only allow http(s) schemes.
+    - Block localhost and private/internal IPs.
+    """
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        host = parsed.hostname
+        if not host:
+            return False
+        # Block localhost
+        if host in ("localhost", "127.0.0.1", "0.0.0.0"):
+            return False
+        # Block internal IPs
+        try:
+            ip = ipaddress.ip_address(host)
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+                return False
+        except ValueError:
+            # Not an IP, might be a domain
+            pass
+        # Optionally, enforce HTTPS only:
+        # if parsed.scheme != "https":
+        #     return False
+        return True
+    except Exception:
+        return False
+
 
 def process_template(template, data):
     """
@@ -166,13 +201,18 @@ def lambda_handler(event, context):
             kv_response = s3_client.get_object(Bucket=kv_database_bucket_name, Key=kv_key)
             kv_data = json.loads(kv_response['Body'].read())
             webhook_url = kv_data['webhook']
-            
-      
+            # SECURITY: Validate webhook URL strictly
+            if not validate_webhook_url(webhook_url):
+                print(f"Blocked unsafe webhook URL: {webhook_url}")
+                return {
+                    'statusCode': 400,
+                    'body': "Invalid or unsafe webhook URL."
+                }
         except Exception as e:
             print(f"Error retrieving webhook for domain {kv_key}: {e}")
             return {
                 'statusCode': 500,
-                'body': f"Webhook for domain {kv_key} not found or error occurred."
+                'body': "Webhook for domain not found or error occurred."
             }
 
         # Extract email body and attachments
@@ -258,12 +298,16 @@ def lambda_handler(event, context):
         # Process webhook URL templates before sending
         webhook_url = process_template(webhook_url, parsed_email)
 
-        # Send HTTP POST request to the webhook
+        # SECURITY: Outbound webhook call with strict timeout and no redirects
         try:
-            response = requests.post(webhook_url, json=parsed_email, timeout=10)
+            response = requests.post(
+                webhook_url,
+                json=parsed_email,
+                timeout=5,  # tighter timeout
+                allow_redirects=False  # do not follow redirects
+            )
             response.raise_for_status()
             print(f"Data sent to webhook {webhook_url} successfully.")
-            
             # Call the updated function with successful webhook details
             save_email_to_database(
                 parsed_email,
@@ -271,22 +315,19 @@ def lambda_handler(event, context):
                 webhook_response=response.text,
                 webhook_status_code=response.status_code
             )
-            
-        except requests.exceptions.RequestException as e:
-            print(f"Error sending data to webhook {webhook_url}: {e}")
-            
-            # Save to database with error information
+        except Exception as e:
+            # SECURITY: Log error internally, but do not leak details to response
+            print(f"Error sending data to webhook {webhook_url}: {repr(e)}")
             save_email_to_database(
                 parsed_email,
                 webhook_url=webhook_url,
-                webhook_response=str(e),
-                webhook_status_code=getattr(e.response, 'status_code', 0) if hasattr(e, 'response') else 0
+                webhook_response="Webhook error",
+                webhook_status_code=getattr(e, 'response', None).status_code if hasattr(e, 'response') and e.response else 0
             )
-            
-            # Log the error but don't return error status
-            print(f"Continuing despite webhook error: {str(e)}")
+            # Continue processing, but do not expose details
+            print("Continuing despite webhook error.")
 
-    # Always return success, regardless of webhook outcome
+    # Always return generic success, regardless of webhook outcome
     return {
         'statusCode': 200,
         'body': "Email processed successfully."
