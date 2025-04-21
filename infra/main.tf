@@ -38,7 +38,10 @@ resource "aws_iam_policy" "lambda_policy" {
           "ses:GetIdentityVerificationAttributes", # Add this action
           "ses:GetIdentityDkimAttributes"
         ],
-        Resource = "*"
+        # Restrict SES actions to only managed identities
+        Resource = [
+          "arn:aws:ses:${var.aws_region}:${var.aws_account_id}:identity/*"
+        ]
       },
       {
         Effect = "Allow",
@@ -47,7 +50,11 @@ resource "aws_iam_policy" "lambda_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ],
-        Resource = "*"
+        # Restrict to SES identities or IAM SMTP users
+        Resource = [
+          "arn:aws:ses:${var.aws_region}:${var.aws_account_id}:identity/*",
+          "arn:aws:iam::${var.aws_account_id}:user/smtp-*"
+        ]
       }
     ]
   })
@@ -95,7 +102,11 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
           "s3:PutObject",
           "s3:DeleteObject"
         ],
-        Resource = "*"
+        # Restrict to SES identities or IAM SMTP users
+        Resource = [
+          "arn:aws:ses:${var.aws_region}:${var.aws_account_id}:identity/*",
+          "arn:aws:iam::${var.aws_account_id}:user/smtp-*"
+        ]
       },
        # Existing S3 Permissions
       {
@@ -131,7 +142,11 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
           "ses:DeleteIdentity",
           "ses:GetIdentityDkimAttributes"
         ]
-        Resource = "*"
+        # Restrict to SES identities or IAM SMTP users
+        Resource = [
+          "arn:aws:ses:${var.aws_region}:${var.aws_account_id}:identity/*",
+          "arn:aws:iam::${var.aws_account_id}:user/smtp-*"
+        ]
       },
       # SMTP User Creation Permissions
       {
@@ -171,7 +186,11 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
         Action = [
           "iam:GetUser"
         ]
-        Resource = "*"
+        # Restrict to SES identities or IAM SMTP users
+        Resource = [
+          "arn:aws:ses:${var.aws_region}:${var.aws_account_id}:identity/*",
+          "arn:aws:iam::${var.aws_account_id}:user/smtp-*"
+        ]
       }
     ]
   })
@@ -485,7 +504,11 @@ resource "aws_iam_role_policy" "lambda_ses_smtp_policy" {
           "ses:DeleteIdentity",
           "ses:GetIdentityDkimAttributes"
         ]
-        Resource = "*"
+        # Restrict to SES identities or IAM SMTP users
+        Resource = [
+          "arn:aws:ses:${var.aws_region}:${var.aws_account_id}:identity/*",
+          "arn:aws:iam::${var.aws_account_id}:user/smtp-*"
+        ]
       },
       # SMTP User Creation Permissions
       {
@@ -525,7 +548,11 @@ resource "aws_iam_role_policy" "lambda_ses_smtp_policy" {
         Action = [
           "iam:GetUser"
         ]
-        Resource = "*"
+        # Restrict to SES identities or IAM SMTP users
+        Resource = [
+          "arn:aws:ses:${var.aws_region}:${var.aws_account_id}:identity/*",
+          "arn:aws:iam::${var.aws_account_id}:user/smtp-*"
+        ]
       }
     ]
   })
