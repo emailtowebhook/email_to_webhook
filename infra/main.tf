@@ -218,7 +218,6 @@ resource "aws_lambda_function" "verify_domain_lambda" {
   environment {
     variables = {
       DATABASE_BUCKET_NAME = var.database_bucket_name
-      FUNCTION_API_URL = "${aws_apigatewayv2_api.lambda_api.api_endpoint}/prod/v1/functions/code/"
       CODE_VERSION = local.verify_lambda_hash  
     }
   }
@@ -431,7 +430,6 @@ resource "aws_lambda_function" "parsing_lambda" {
       DATABASE_BUCKET_NAME = var.database_bucket_name
       ATTACHMENTS_BUCKET_NAME = var.attachments_bucket_name
       DB_CONNECTION_STRING = var.db_connection_string
-      FUNCTION_API_URL = "${aws_apigatewayv2_api.lambda_api.api_endpoint}/prod/v1/functions/code/"
       # Add a marker to track deployments - only changes when code actually changes
       CODE_VERSION = local.parser_lambda_hash
     }
