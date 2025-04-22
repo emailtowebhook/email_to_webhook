@@ -342,6 +342,7 @@ resource "aws_ses_active_receipt_rule_set" "activate_rule_set" {
 
 resource "aws_s3_bucket" "kv_database_bucket" {
   bucket = var.database_bucket_name
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_ownership_controls" "kv_database_bucket_ownership" {
@@ -359,6 +360,7 @@ resource "aws_s3_bucket_acl" "kv_database_bucket_acl" {
 
 resource "aws_s3_bucket" "attachments_bucket" {
   bucket = var.attachments_bucket_name
+  force_destroy = true
 }
 
 # Configure public access block to allow public policies
