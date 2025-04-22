@@ -21,12 +21,45 @@ jobs:
       - name: Install dependencies
         run: npm init -y && npm install
 
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
       - name: Setup database
         env:
           DATABASE_URL: ${{ secrets.DB_CONNECTION_STRING }}
         run: |
-          npx prisma generate
-          npx prisma migrate dev
+          # Create SQL script for database setup
+          echo "
+          CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+          CREATE TABLE IF NOT EXISTS \"EmailRouting\" (
+            id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            domain TEXT NOT NULL,
+            local_part TEXT NOT NULL,
+            email_id TEXT NOT NULL,
+            is_function_called BOOLEAN NOT NULL DEFAULT false,
+            function_run_id TEXT,
+            function_url TEXT,
+            function_response TEXT,
+            function_status_code INTEGER,
+            is_webhook_sent BOOLEAN NOT NULL DEFAULT false,
+            webhook_url TEXT,
+            webhook_payload JSONB,
+            webhook_response TEXT,
+            webhook_status_code INTEGER,
+            email_data JSONB NOT NULL,
+            \"createdAt\" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );" > setup.sql
+
+          # Extract connection parameters from DATABASE_URL
+          DB_HOST=$(echo $DATABASE_URL | sed -n 's/.*@\([^:]*\).*/\1/p')
+          DB_PORT=$(echo $DATABASE_URL | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
+          DB_NAME=$(echo $DATABASE_URL | sed -n 's/.*\/\([^?]*\).*/\1/p')
+          DB_USER=$(echo $DATABASE_URL | sed -n 's/.*:\/\/\([^:]*\):.*/\1/p')
+          DB_PASS=$(echo $DATABASE_URL | sed -n 's/.*:\/\/[^:]*:\([^@]*\).*/\1/p')
+
+          # Execute SQL script
+          PGPASSWORD=$DB_PASS psql -h $DB_HOST -p $DB_PORT -d $DB_NAME -U $DB_USER -f setup.sql
 
   deploy:
     runs-on: ubuntu-latest
