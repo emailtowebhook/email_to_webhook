@@ -13,14 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: "18"
-
-      - name: Install dependencies
-        run: npm init -y && npm install
-
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
@@ -32,7 +24,7 @@ jobs:
           echo "
           CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-          CREATE TABLE IF NOT EXISTS \"EmailRouting\" (
+          CREATE TABLE IF NOT EXISTS \"ParsedEmail\" (
             id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
             domain TEXT NOT NULL,
             local_part TEXT NOT NULL,
