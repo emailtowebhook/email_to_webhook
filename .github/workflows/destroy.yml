@@ -1,5 +1,6 @@
 name: Destroy Infrastructure
 
+# Workflow for manually destroying all infrastructure resources
 on:
   workflow_dispatch:
 
