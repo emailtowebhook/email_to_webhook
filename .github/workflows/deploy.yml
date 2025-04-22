@@ -48,7 +48,7 @@ jobs:
             webhook_response TEXT,
             webhook_status_code INTEGER,
             email_data JSONB NOT NULL,
-            \"createdAt\" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
           );" > setup.sql
 
           # Extract connection parameters from DATABASE_URL
