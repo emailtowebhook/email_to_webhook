@@ -97,8 +97,6 @@ def save_email_to_database(email_data, webhook_url=None, webhook_response=None, 
         # Connect to PostgreSQL
         conn = psycopg2.connect(db_connection_string)
         cursor = conn.cursor()
-     
-        # Prepare SQL query - let PostgreSQL handle id and createdAt with their defaults
         query = """
         INSERT INTO "ParsedEmail" (
             id, domain, 
