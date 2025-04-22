@@ -27,6 +27,9 @@ Deployment runs automatically on pushes to main branch or can be triggered manua
 
 ## Using the API
 
+After successful deployment, you will see the API Gateway URL:
+![API Gateway URL Example](https://res.cloudinary.com/dhwxfvlrn/image/upload/f_auto,q_auto/9fd400e4-af82-4f0f-b0eb-ac9036dcede3.png)
+
 ### Register Domain
 
 ```
