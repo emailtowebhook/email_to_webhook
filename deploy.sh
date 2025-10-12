@@ -51,11 +51,7 @@ echo "Packaging Parser Lambda function..."
   exit 1
 }
 
-echo "Packaging Deno Function Lambda..."
-(cd lambda/deno_function && ./package.sh) || {
-  echo "Deno Function Lambda packaging failed."
-  exit 1
-}
+echo "Packaging complete."
 
 # Change directory to the infa folder before running terraform commands
 cd infra
