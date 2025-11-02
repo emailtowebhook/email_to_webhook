@@ -199,7 +199,7 @@ def get_public_key(domain):
         print(f"Error getting public key: {str(e)}")
         return ""
 
-def format_dns_records(domain, token, dkim_tokens, public_key=None, return_all=False):
+def format_dns_records(domain, token, dkim_tokens, public_key=None, return_all=True):
     """Format DNS records in a structured way."""
     records = {}
     
