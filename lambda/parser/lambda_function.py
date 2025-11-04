@@ -23,18 +23,16 @@ s3_client = boto3.client('s3')
 
 # MongoDB connection
 mongodb_uri = os.environ.get('MONGODB_URI', '')
+environment = os.environ.get('ENVIRONMENT', 'main')
 mongo_client = None
 db = None
 
 if mongodb_uri:
     try:
         mongo_client = MongoClient(mongodb_uri)
-        # Try to get default database from URI, otherwise use 'ep'
-        try:
-            db = mongo_client.get_default_database()
-        except:
-            # No default database in URI, use fallback
-            db = mongo_client['ep']
+        # Use environment-specific database name
+        db_name = f"email_webhooks_{environment.replace('/', '_')}"  # Replace / in branch names
+        db = mongo_client[db_name]
         print(f"MongoDB connection initialized successfully, using database: {db.name}")
     except Exception as e:
         print(f"Failed to initialize MongoDB connection: {e}")
@@ -105,7 +103,7 @@ def save_email_to_mongodb(email_data, webhook_url=None, webhook_response=None, w
         webhook_response (str, optional): The response from the webhook
         webhook_status_code (int, optional): The status code from the webhook
     """
-    if not db or not mongodb_uri:
+    if db is None or not mongodb_uri:
         print("MongoDB connection not available, skipping database save")
         return
     
@@ -202,7 +200,7 @@ def lambda_handler(event, context):
         # Retrieve webhook URL from MongoDB
         webhook_url = None
         try:
-            if db and mongodb_uri:
+            if db is not None and mongodb_uri:
                 # Query MongoDB for domain configuration
                 domain_configs = db['domain_configs']
                 domain_config = domain_configs.find_one({"domain": kv_key})

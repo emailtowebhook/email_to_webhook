@@ -19,18 +19,16 @@ iam_client = boto3.client('iam')
 
 # MongoDB connection
 mongodb_uri = os.environ.get('MONGODB_URI', '')
+environment = os.environ.get('ENVIRONMENT', 'main')
 mongo_client = None
 db = None
 
 if mongodb_uri:
     try:
         mongo_client = MongoClient(mongodb_uri)
-        # Try to get default database from URI, otherwise use 'ep'
-        try:
-            db = mongo_client.get_default_database()
-        except:
-            # No default database in URI, use fallback
-            db = mongo_client['ep']
+        # Use environment-specific database name
+        db_name = f"email_webhooks_{environment.replace('/', '_')}"  # Replace / in branch names
+        db = mongo_client[db_name]
         # Create unique index on domain field
         db['domain_configs'].create_index("domain", unique=True)
         print(f"MongoDB connection initialized successfully, using database: {db.name}")
@@ -173,7 +171,7 @@ def delete_domain(domain):
             # Continue with MongoDB deletion even if SES delete fails
 
         # Delete from MongoDB
-        if db and mongodb_uri:
+        if db is not None and mongodb_uri:
             try:
                 domain_configs = db['domain_configs']
                 result = domain_configs.delete_one({"domain": domain})
@@ -346,7 +344,7 @@ def lambda_handler(event, context):
                 }
             
             # Check MongoDB connection
-            if not db or not mongodb_uri:
+            if db is None or not mongodb_uri:
                 return {
                     "headers": {
                         "Content-Type": "application/json"
@@ -453,7 +451,7 @@ def lambda_handler(event, context):
                 }
             
             # Check MongoDB connection
-            if not db or not mongodb_uri:
+            if db is None or not mongodb_uri:
                 return {
                     "headers": {
                         "Content-Type": "application/json"
@@ -569,7 +567,7 @@ def lambda_handler(event, context):
                 }
             
             # Check MongoDB connection
-            if not db or not mongodb_uri:
+            if db is None or not mongodb_uri:
                 return {
                     "headers": {
                         "Content-Type": "application/json"
