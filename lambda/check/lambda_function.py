@@ -24,6 +24,7 @@ db = None
 
 if mongodb_uri:
     try:
+        print(f"Initializing MongoDB connection with URI: {mongodb_uri}")
         mongo_client = MongoClient(mongodb_uri)
         db = mongo_client.get_database()  # Uses default database from connection string
         # Create unique index on domain field
