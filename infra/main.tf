@@ -221,6 +221,10 @@ resource "aws_lambda_function" "verify_domain_lambda" {
 resource "aws_apigatewayv2_api" "lambda_api" {
   name          = "EmailParserAPI-${var.environment}"
   protocol_type = "HTTP"
+  
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # API Gateway Integration with Lambda
@@ -232,10 +236,10 @@ resource "aws_apigatewayv2_integration" "lambda_integration" {
 }
  
 
-# API Gateway Stage
-resource "aws_apigatewayv2_stage" "prod_stage" {
+# API Gateway Stage (per environment/branch)
+resource "aws_apigatewayv2_stage" "env_stage" {
   api_id      = aws_apigatewayv2_api.lambda_api.id
-  name        = "prod"
+  name        = var.environment
   auto_deploy = true
 }
 
@@ -278,11 +282,11 @@ resource "aws_apigatewayv2_route" "get_domain_route" {
 
 # Lambda Permission for API Gateway
 resource "aws_lambda_permission" "verify_api_gateway_permission" {
-  statement_id  = "AllowAPIGatewayInvoke"
+  statement_id  = "AllowAPIGatewayInvoke-${var.environment}"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.verify_domain_lambda.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.lambda_api.execution_arn}/prod/*"
+  source_arn    = "${aws_apigatewayv2_api.lambda_api.execution_arn}/${var.environment}/*"
 }
 
  
