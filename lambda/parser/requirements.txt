@@ -1,4 +1,4 @@
 boto3
 requests
-pymongo
+pymongo>=4.0,<5.0
 pystache

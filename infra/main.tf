@@ -191,7 +191,7 @@ resource "aws_lambda_function" "verify_domain_lambda" {
   function_name = "verify-domain-lambda-${var.environment}"
   filename      = var.verify_lambda_file_path
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.9"
+  runtime       = "python3.12"
   role          = aws_iam_role.verify_domain_lambda_role.arn
 
   source_code_hash = local.verify_lambda_hash
@@ -414,7 +414,7 @@ resource "aws_lambda_function" "parsing_lambda" {
   function_name = "email-parser-lambda-${var.environment}"
   role          = aws_iam_role.lambda_exec.arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.9"
+  runtime       = "python3.12"
   filename      = var.parser_lambda_file_path # Directly reference the ZIP file
 
   # Use the pre-calculated hash from locals
