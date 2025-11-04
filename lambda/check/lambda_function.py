@@ -41,7 +41,6 @@ def generate_password():
     alphabet = string.ascii_letters + string.digits + "!@#$%^&*()_+-=[]{}|"
     return ''.join(secrets.choice(alphabet) for i in range(16))
 
-
 def get_existing_smtp_user(domain):
     """Check if SMTP user already exists for the domain."""
     username = f"smtp-{domain.replace('.', '-')}"
@@ -65,7 +64,6 @@ def get_existing_smtp_user(domain):
         return None
     except iam_client.exceptions.NoSuchEntityException:
         return None
-
 
 def create_smtp_user(domain):
     """Create IAM user with SES SMTP permissions and generate SMTP credentials."""
@@ -121,7 +119,6 @@ def create_smtp_user(domain):
             pass
         raise e
 
-
 def verify_domain(domain):
     """Initiate SES domain verification if not already verified."""
     status = check_verification_status(domain)
@@ -136,7 +133,6 @@ def verify_domain(domain):
         Identities=[domain]
     )
     return response['VerificationAttributes'][domain].get('VerificationToken', '')
-
 
 def check_verification_status(domain):
     """Check SES domain verification status."""
@@ -353,7 +349,7 @@ def lambda_handler(event, context):
                     "body": json.dumps({"error": "Database connection not available"})
                 }
             
-            # Get domain data from MongoDB
+            # Get domain data from MongoDB 
             try:
                 domain_configs = db['domain_configs']
                 mongo_data = domain_configs.find_one({"domain": domain})
