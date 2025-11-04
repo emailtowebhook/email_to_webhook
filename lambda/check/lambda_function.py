@@ -25,12 +25,12 @@ db = None
 if mongodb_uri:
     try:
         mongo_client = MongoClient(mongodb_uri)
-        # Try to get default database from URI, otherwise use 'email_webhooks'
+        # Try to get default database from URI, otherwise use 'ep'
         try:
             db = mongo_client.get_default_database()
         except:
             # No default database in URI, use fallback
-            db = mongo_client['email_webhooks']
+            db = mongo_client['ep']
         # Create unique index on domain field
         db['domain_configs'].create_index("domain", unique=True)
         print(f"MongoDB connection initialized successfully, using database: {db.name}")
