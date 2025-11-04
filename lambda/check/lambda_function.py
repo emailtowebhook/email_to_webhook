@@ -11,9 +11,26 @@ import re
 import os
 import uuid
 import datetime
+from pymongo import MongoClient
+from pymongo.errors import PyMongoError, DuplicateKeyError
 
 ses_client = boto3.client('ses')
 iam_client = boto3.client('iam')
+
+# MongoDB connection
+mongodb_uri = os.environ.get('MONGODB_URI', '')
+mongo_client = None
+db = None
+
+if mongodb_uri:
+    try:
+        mongo_client = MongoClient(mongodb_uri)
+        db = mongo_client.get_database()  # Uses default database from connection string
+        # Create unique index on domain field
+        db['domain_configs'].create_index("domain", unique=True)
+        print("MongoDB connection initialized successfully")
+    except Exception as e:
+        print(f"Failed to initialize MongoDB connection: {e}")
 
 
 def generate_password():
@@ -139,14 +156,8 @@ def is_valid_webhook(webhook):
     return bool(re.match(pattern, webhook))
 
 def delete_domain(domain):
-    """Delete domain from S3 and SES."""
-    # Initialize clients
-    s3 = boto3.client('s3')
-    
+    """Delete domain from MongoDB and SES."""
     try:
-        # Delete from S3
-        bucket_name = os.environ.get('DATABASE_BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
-        
         # Try to delete from SES
         try:
             ses_client.delete_identity(
@@ -154,17 +165,23 @@ def delete_domain(domain):
             )
         except Exception as ses_error:
             print(f"Error deleting domain from SES {domain}: {str(ses_error)}")
-            # Continue with S3 deletion even if SES delete fails
+            # Continue with MongoDB deletion even if SES delete fails
 
-        # Delete from S3
-        try:
-            s3.delete_object(
-                Bucket=bucket_name,
-                Key=domain
-            )
-        except Exception as s3_error:
-            print(f"Error deleting domain from S3 {domain}: {str(s3_error)}")
-            # Continue even if S3 delete fails
+        # Delete from MongoDB
+        if db and mongodb_uri:
+            try:
+                domain_configs = db['domain_configs']
+                result = domain_configs.delete_one({"domain": domain})
+                if result.deleted_count == 0:
+                    print(f"Domain {domain} not found in MongoDB")
+                else:
+                    print(f"Domain {domain} deleted from MongoDB successfully")
+            except PyMongoError as mongo_error:
+                print(f"Error deleting domain from MongoDB {domain}: {str(mongo_error)}")
+                raise mongo_error
+        else:
+            print("MongoDB connection not available")
+            raise Exception("Database connection not available")
         
         return True
     except Exception as e:
@@ -323,24 +340,41 @@ def lambda_handler(event, context):
                     "body": json.dumps({"error": "Domain is required in the path"})
                 }
             
-            # Initialize S3 client
-            s3 = boto3.client('s3')
-            bucket_name = os.environ.get('DATABASE_BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
-            
-            # Get domain data from S3
-            try:
-                s3_response = s3.get_object(
-                    Bucket=bucket_name,
-                    Key=domain
-                )
-                s3_data = json.loads(s3_response['Body'].read().decode('utf-8'))
-            except s3.exceptions.NoSuchKey:
+            # Check MongoDB connection
+            if not db or not mongodb_uri:
                 return {
                     "headers": {
                         "Content-Type": "application/json"
                     },
-                    "statusCode": 404,
-                    "body": json.dumps({"error": f"Domain {domain} not found"})
+                    "statusCode": 500,
+                    "body": json.dumps({"error": "Database connection not available"})
+                }
+            
+            # Get domain data from MongoDB
+            try:
+                domain_configs = db['domain_configs']
+                mongo_data = domain_configs.find_one({"domain": domain})
+                
+                if not mongo_data:
+                    return {
+                        "headers": {
+                            "Content-Type": "application/json"
+                        },
+                        "statusCode": 404,
+                        "body": json.dumps({"error": f"Domain {domain} not found"})
+                    }
+                
+                # Remove MongoDB _id field from response
+                if '_id' in mongo_data:
+                    del mongo_data['_id']
+                    
+            except PyMongoError as e:
+                return {
+                    "headers": {
+                        "Content-Type": "application/json"
+                    },
+                    "statusCode": 500,
+                    "body": json.dumps({"error": f"Error fetching MongoDB data: {str(e)}"})
                 }
             except Exception as e:
                 return {
@@ -348,7 +382,7 @@ def lambda_handler(event, context):
                         "Content-Type": "application/json"
                     },
                     "statusCode": 500,
-                    "body": json.dumps({"error": f"Error fetching S3 data: {str(e)}"})
+                    "body": json.dumps({"error": f"Error fetching data: {str(e)}"})
                 }
             
             # Get domain verification status from SES
@@ -381,7 +415,7 @@ def lambda_handler(event, context):
             dns_records = format_dns_records(domain, token, dkim_tokens)
             
             # Include status in response only if SES data was queried
-            response_data = {**s3_data}
+            response_data = {**mongo_data}
             
             if not ignoreSesData:
                 response_data["status"] = status.lower()
@@ -413,49 +447,52 @@ def lambda_handler(event, context):
                     "body": json.dumps({"error": "Domain is required in the path"})
                 }
             
-            # Initialize S3 client
-            s3 = boto3.client('s3')
-            bucket_name = os.environ.get('DATABASE_BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
-            
-            # First, read the existing object from S3
-            try:
-                s3_response = s3.get_object(
-                    Bucket=bucket_name,
-                    Key=domain
-                )
-                existing_data = json.loads(s3_response['Body'].read().decode('utf-8'))
-            except s3.exceptions.NoSuchKey:
-                # If the domain doesn't exist in S3, return an error
-                return {
-                    "headers": {
-                        "Content-Type": "application/json"
-                    },
-                    "statusCode": 404,
-                    "body": json.dumps({"error": f"Domain '{domain}' not found"})
-                }
-               
-            except Exception as e:
+            # Check MongoDB connection
+            if not db or not mongodb_uri:
                 return {
                     "headers": {
                         "Content-Type": "application/json"
                     },
                     "statusCode": 500,
-                    "body": json.dumps({"error": f"Error fetching existing data: {str(e)}"})
+                    "body": json.dumps({"error": "Database connection not available"})
                 }
             
-            # Update the data with new values, but don't change the domain
-            for key, value in body.items():
-                if key != 'domain':
-                    existing_data[key] = value
-            
-            # Write the updated data back to S3
+            # Update the domain configuration in MongoDB
             try:
-                s3.put_object(
-                    Bucket=bucket_name,
-                    Key=domain,
-                    Body=json.dumps(existing_data),
-                    ContentType='application/json'
+                domain_configs = db['domain_configs']
+                
+                # Prepare update data (exclude domain field)
+                update_data = {k: v for k, v in body.items() if k != 'domain'}
+                update_data['updated_at'] = datetime.datetime.utcnow()
+                
+                # Update the document
+                result = domain_configs.update_one(
+                    {"domain": domain},
+                    {"$set": update_data}
                 )
+                
+                if result.matched_count == 0:
+                    return {
+                        "headers": {
+                            "Content-Type": "application/json"
+                        },
+                        "statusCode": 404,
+                        "body": json.dumps({"error": f"Domain '{domain}' not found"})
+                    }
+                
+                # Fetch the updated document
+                updated_data = domain_configs.find_one({"domain": domain})
+                if '_id' in updated_data:
+                    del updated_data['_id']
+                    
+            except PyMongoError as e:
+                return {
+                    "headers": {
+                        "Content-Type": "application/json"
+                    },
+                    "statusCode": 500,
+                    "body": json.dumps({"error": f"Error updating data: {str(e)}"})
+                }
             except Exception as e:
                 return {
                     "headers": {
@@ -470,9 +507,7 @@ def lambda_handler(event, context):
                 "headers": {
                     "Content-Type": "application/json"
                 },
-                "body": json.dumps({
-                    **existing_data,
-                })
+                "body": json.dumps(updated_data)
             }
             
         # Handle POST request (existing functionality)
@@ -489,9 +524,6 @@ def lambda_handler(event, context):
                 user_domain = body.get('domain')
             
             webhook = body.get('webhook')
-
-            # Initialize S3 client
-            s3 = boto3.client('s3')
 
             if not user_domain:
                 return {
@@ -530,39 +562,48 @@ def lambda_handler(event, context):
                     "statusCode": 400,
                     "body": json.dumps({"error": "Invalid webhook URL format"})
                 }
-        
-
-            # Define the bucket name and key
-            bucket_name = os.environ.get('DATABASE_BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
-            key = user_domain
-
-    
-            # Check if key exists, exit if it does
-            try:
-                s3.get_object(Bucket=bucket_name, Key=key)
+            
+            # Check MongoDB connection
+            if not db or not mongodb_uri:
                 return {
-                    "statusCode": 200,
                     "headers": {
                         "Content-Type": "application/json"
                     },
-                    "body": json.dumps({"message": "Domain already exists"})
+                    "statusCode": 500,
+                    "body": json.dumps({"error": "Database connection not available"})
                 }
-            except s3.exceptions.NoSuchKey as e:
-                pass
             
-            # Simply update the webhook as in original code
-            data = {
-                "webhook": webhook
-            }
-            json_data = json.dumps(data)
-
-            # Upload the JSON string to S3
-            s3.put_object(
-                Bucket=bucket_name,
-                Key=key,
-                Body=json_data,
-                ContentType='application/json'
-            )
+            # Insert domain configuration into MongoDB
+            try:
+                domain_configs = db['domain_configs']
+                
+                # Prepare domain configuration document
+                domain_config = {
+                    "domain": user_domain,
+                    "webhook": webhook,
+                    "created_at": datetime.datetime.utcnow(),
+                    "updated_at": datetime.datetime.utcnow()
+                }
+                
+                # Try to insert, check for duplicate
+                try:
+                    domain_configs.insert_one(domain_config)
+                except DuplicateKeyError:
+                    return {
+                        "statusCode": 200,
+                        "headers": {
+                            "Content-Type": "application/json"
+                        },
+                        "body": json.dumps({"message": "Domain already exists"})
+                    }
+            except PyMongoError as e:
+                return {
+                    "headers": {
+                        "Content-Type": "application/json"
+                    },
+                    "statusCode": 500,
+                    "body": json.dumps({"error": f"Error saving domain configuration: {str(e)}"})
+                }
 
             # Check the current verification status
             status = check_verification_status(user_domain)
