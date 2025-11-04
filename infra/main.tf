@@ -288,7 +288,11 @@ resource "aws_lambda_permission" "verify_api_gateway_permission" {
  
 
 resource "aws_ses_receipt_rule_set" "default_rule_set" {
-  rule_set_name = "default-rule-set-${var.environment}"
+  rule_set_name = "default-rule-set"
+  
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # S3 Bucket Policy to Allow SES Write Access
@@ -318,7 +322,7 @@ resource "aws_s3_bucket_policy" "email_storage_policy" {
 # SES Receipt Rule
 resource "aws_ses_receipt_rule" "catch_all_rule" {
   rule_set_name = aws_ses_receipt_rule_set.default_rule_set.rule_set_name
-  name          = "catch-all-to-s3"
+  name          = "catch-all-to-s3-${var.environment}"
   enabled       = true
 
   # Match all recipients (empty list means all verified domains)
@@ -336,10 +340,13 @@ resource "aws_ses_receipt_rule" "catch_all_rule" {
   depends_on = [aws_s3_bucket_policy.email_storage_policy, aws_s3_bucket.emails_bucket , aws_ses_receipt_rule_set.default_rule_set]
 }
 
-# Activate the Rule Set
+# Activate the Rule Set (only one can be active per AWS account)
 resource "aws_ses_active_receipt_rule_set" "activate_rule_set" {
     rule_set_name = aws_ses_receipt_rule_set.default_rule_set.rule_set_name
-
+    
+    lifecycle {
+      prevent_destroy = true
+    }
 }
 
 resource "aws_s3_bucket" "kv_database_bucket" {
