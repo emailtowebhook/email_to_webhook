@@ -367,9 +367,14 @@ def lambda_handler(event, context):
                         "body": json.dumps({"error": f"Domain {domain} not found"})
                     }
                 
-                # Remove MongoDB _id field from response
+                # Remove MongoDB _id field and convert datetime objects to strings
                 if '_id' in mongo_data:
                     del mongo_data['_id']
+                
+                # Convert datetime objects to ISO format strings
+                for key, value in mongo_data.items():
+                    if isinstance(value, datetime.datetime):
+                        mongo_data[key] = value.isoformat()
                     
             except PyMongoError as e:
                 return {
@@ -487,6 +492,11 @@ def lambda_handler(event, context):
                 updated_data = domain_configs.find_one({"domain": domain})
                 if '_id' in updated_data:
                     del updated_data['_id']
+                
+                # Convert datetime objects to ISO format strings
+                for key, value in updated_data.items():
+                    if isinstance(value, datetime.datetime):
+                        updated_data[key] = value.isoformat()
                     
             except PyMongoError as e:
                 return {
