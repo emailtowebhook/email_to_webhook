@@ -29,8 +29,13 @@ db = None
 if mongodb_uri:
     try:
         mongo_client = MongoClient(mongodb_uri)
-        db = mongo_client.get_database()  # Uses default database from connection string
-        print("MongoDB connection initialized successfully")
+        # Try to get default database from URI, otherwise use 'email_webhooks'
+        try:
+            db = mongo_client.get_default_database()
+        except:
+            # No default database in URI, use fallback
+            db = mongo_client['ep']
+        print(f"MongoDB connection initialized successfully, using database: {db.name}")
     except Exception as e:
         print(f"Failed to initialize MongoDB connection: {e}")
 
