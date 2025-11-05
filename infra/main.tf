@@ -1,8 +1,7 @@
 # S3 Bucket for Lambda Deployment Package
 resource "aws_s3_bucket" "emails_bucket" {
-  bucket = "${var.email_bucket_name}-${var.environment}"
+  bucket = "${var.email_bucket_name}"
   force_destroy = true
- 
 }
 
 # IAM Role for Lambda
