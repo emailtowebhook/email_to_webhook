@@ -29,6 +29,16 @@ jobs:
         shell: bash
         run: echo "BRANCH_NAME=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
 
+      - name: Check for shared infrastructure
+        run: |
+          if ! aws s3 ls s3://email-to-webhook-emails-shared 2>/dev/null; then
+            echo "⚠️ WARNING: Shared infrastructure not found!"
+            echo "The shared SES infrastructure should be deployed first."
+            echo "Run the 'Deploy Shared Infrastructure' workflow manually."
+            exit 1
+          fi
+          echo "✅ Shared infrastructure found."
+
       - name: Package Check Lambda function
         run: |
           mkdir -p lambda_packages

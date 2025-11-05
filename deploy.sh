@@ -11,6 +11,20 @@ TF_COMMAND="terraform"
 ENVIRONMENT=${ENVIRONMENT:-main}
 echo "🌍 Deploying to environment: $ENVIRONMENT"
 
+# Check if shared infrastructure exists
+echo "🔍 Checking for shared infrastructure..."
+if ! aws s3 ls s3://email-to-webhook-emails-shared 2>/dev/null; then
+  echo ""
+  echo "❌ ERROR: Shared infrastructure not deployed!"
+  echo ""
+  echo "The shared SES infrastructure must be deployed first."
+  echo "Run: ./deploy-shared.sh"
+  echo ""
+  exit 1
+fi
+echo "✅ Shared infrastructure found."
+echo ""
+
 # Check if AWS CLI is installed
 if ! command -v aws &> /dev/null; then
     echo "AWS CLI is not installed. Please install it before running this script."

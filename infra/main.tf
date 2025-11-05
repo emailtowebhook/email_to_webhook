@@ -1,12 +1,11 @@
-# S3 Bucket for Lambda Deployment Package
-resource "aws_s3_bucket" "emails_bucket" {
-  bucket = "${var.email_bucket_name}-${var.environment}"
-  force_destroy = true
+# Reference the shared email bucket (managed in infra/shared/)
+data "aws_s3_bucket" "emails_bucket" {
+  bucket = "email-to-webhook-emails-shared"
 }
 
 # IAM Role for Lambda
 resource "aws_iam_role" "lambda_role" {
-  name = "lambda_ses_dns_role"
+  name = "lambda_ses_dns_role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -23,7 +22,7 @@ resource "aws_iam_role" "lambda_role" {
 }
 
 resource "aws_iam_policy" "lambda_policy" {
-  name        = "lambda_ses_policy"
+  name        = "lambda_ses_policy-${var.environment}"
   description = "Policy to allow Lambda to access SES, S3, and CloudWatch"
 
   policy = jsonencode({
@@ -59,7 +58,7 @@ resource "aws_iam_role_policy_attachment" "lambda_role_attachment" {
 
 # Create the IAM Role for the Lambda Function
 resource "aws_iam_role" "verify_domain_lambda_role" {
-  name = "verify-domain-lambda-role"
+  name = "verify-domain-lambda-role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -77,7 +76,7 @@ resource "aws_iam_role" "verify_domain_lambda_role" {
 
 # Attach a Policy to the Lambda Role
 resource "aws_iam_policy" "verify_domain_lambda_policy" {
-  name = "verify-domain-lambda-policy"
+  name = "verify-domain-lambda-policy-${var.environment}"
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -88,15 +87,11 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
           "ses:VerifyDomainIdentity",
           "ses:VerifyDomainDkim",
           "ses:GetIdentityVerificationAttributes",
-          "ses:CreateReceiptRule",
-          "ses:DeleteReceiptRule",
-          "ses:GetIdentityDkimAttributes",
-          "ses:DeleteIdentity",
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
           "s3:PutObject",
-          "s3:DeleteObject",  
+          "s3:DeleteObject"
         ],
         Resource = "*"
       },
@@ -202,7 +197,6 @@ resource "aws_lambda_function" "verify_domain_lambda" {
   environment {
     variables = {
       DATABASE_BUCKET_NAME = var.database_bucket_name
-      EMAIL_BUCKET = aws_s3_bucket.emails_bucket.bucket
       MONGODB_URI = var.mongodb_uri
       ENVIRONMENT = var.environment
       CODE_VERSION = local.verify_lambda_hash  
@@ -293,70 +287,6 @@ resource "aws_lambda_permission" "verify_api_gateway_permission" {
   source_arn    = "${aws_apigatewayv2_api.lambda_api.execution_arn}/${var.environment}/*"
 }
 
- 
-
-resource "aws_ses_receipt_rule_set" "default_rule_set" {
-  rule_set_name = "default-rule-set"
-  
-  lifecycle {
-    prevent_destroy = false
-  }
-}
-
-# S3 Bucket Policy to Allow SES Write Access
-resource "aws_s3_bucket_policy" "email_storage_policy" {
-  bucket = aws_s3_bucket.emails_bucket.id
-
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect    = "Allow",
-        Principal = {
-          Service = "ses.amazonaws.com"
-        },
-        Action    = "s3:PutObject",
-        Resource  = "${aws_s3_bucket.emails_bucket.arn}/*",
-        Condition = {
-          StringEquals = {
-            "aws:Referer": var.aws_account_id
-          }
-        }
-      }
-    ]
-  })
-}
-
-# SES Receipt Rule
-# resource "aws_ses_receipt_rule" "catch_all_rule" {
-#   rule_set_name = aws_ses_receipt_rule_set.default_rule_set.rule_set_name
-#   name          = "catch-all-to-s3-${var.environment}"
-#   enabled       = true
-
-#   # Match all recipients (empty list means all verified domains)
-#   recipients = []
-
-#   # Actions for the receipt rule
-#   s3_action {
-#     bucket_name      = aws_s3_bucket.emails_bucket.id
-#     position      = 1  # Position in the rule set
-#    }
-
-#   # Enable email scanning for spam/viruses
-#   scan_enabled = true
-
-#   depends_on = [aws_s3_bucket_policy.email_storage_policy, aws_s3_bucket.emails_bucket , aws_ses_receipt_rule_set.default_rule_set]
-# }
-
-# Activate the Rule Set (only one can be active per AWS account)
-resource "aws_ses_active_receipt_rule_set" "activate_rule_set" {
-    rule_set_name = aws_ses_receipt_rule_set.default_rule_set.rule_set_name
-    
-    # lifecycle {
-    #   prevent_destroy = false
-    # }
-}
-
 resource "aws_s3_bucket" "kv_database_bucket" {
   bucket = "${var.database_bucket_name}-${var.environment}"
   force_destroy = true
@@ -428,6 +358,7 @@ resource "aws_lambda_function" "parsing_lambda" {
   environment {
     variables = {
       DATABASE_BUCKET_NAME = var.database_bucket_name
+      EMAILS_BUCKET_NAME = data.aws_s3_bucket.emails_bucket.id
       ATTACHMENTS_BUCKET_NAME = var.attachments_bucket_name
       MONGODB_URI = var.mongodb_uri
       ENVIRONMENT = var.environment
@@ -447,7 +378,7 @@ resource "aws_lambda_function" "parsing_lambda" {
 }
 
 resource "aws_iam_role" "lambda_exec" {
-  name = "lambda_exec_role"
+  name = "lambda_exec_role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -463,7 +394,7 @@ resource "aws_iam_role" "lambda_exec" {
   })
 }
 resource "aws_iam_role_policy" "lambda_ses_smtp_policy" {
-  name = "lambda_ses_smtp_policy"
+  name = "lambda_ses_smtp_policy-${var.environment}"
   role = aws_iam_role.lambda_exec.name
 
   policy = jsonencode({
@@ -555,27 +486,28 @@ resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
 }
 
 resource "aws_s3_bucket_notification" "bucket_notification" {
-  bucket = aws_s3_bucket.emails_bucket.bucket
+  bucket = data.aws_s3_bucket.emails_bucket.id
 
   lambda_function {
     lambda_function_arn = aws_lambda_function.parsing_lambda.arn
     events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = "${var.environment}/" # Only trigger for this environment's emails
   }
 
   depends_on = [aws_lambda_permission.allow_s3_to_invoke]
 }
 
 resource "aws_lambda_permission" "allow_s3_to_invoke" {
-  statement_id  = "AllowS3Invoke"
+  statement_id  = "AllowS3Invoke-${var.environment}"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.parsing_lambda.function_name
   principal     = "s3.amazonaws.com"
-  source_arn    = aws_s3_bucket.emails_bucket.arn
+  source_arn    = data.aws_s3_bucket.emails_bucket.arn
 }
 
 # Add this new resource to attach S3 read permissions to the role
 resource "aws_iam_role_policy" "lambda_s3_policy" {
-  name   = "lambda_s3_policy"
+  name   = "lambda_s3_policy-${var.environment}"
   role   = aws_iam_role.lambda_exec.id
   policy = jsonencode({
     Version = "2012-10-17",
@@ -587,8 +519,8 @@ resource "aws_iam_role_policy" "lambda_s3_policy" {
         ],
         Effect   = "Allow",
         Resource = [
-          "${aws_s3_bucket.emails_bucket.arn}",
-          "${aws_s3_bucket.emails_bucket.arn}/*"
+          "${data.aws_s3_bucket.emails_bucket.arn}",
+          "${data.aws_s3_bucket.emails_bucket.arn}/*"
         ]
       }
     ]
