@@ -91,69 +91,60 @@ def process_template(template, data):
 def extract_email_body(msg):
     """
     Recursively extract body content from an email message.
-    Handles both simple and nested multipart structures.
-    
+    Handles nested multipart structures and prefers the most complete parts.
+
     Returns:
         tuple: (body_text, html_body)
     """
-    body_text = ""
-    html_body = ""
-    
-    if msg.is_multipart():
-        # Iterate through all parts
-        for part in msg.iter_parts():
+    plain_candidates = []
+    html_candidates = []
+
+    def walk(part):
+        try:
+            if part.is_multipart():
+                for sub in part.iter_parts():
+                    walk(sub)
+                return
+
             content_type = part.get_content_type()
             content_disposition = str(part.get_content_disposition() or "").lower()
-            
+
             # Skip attachments
             if "attachment" in content_disposition:
-                continue
-                
-            # Process text parts
-            if content_type == "text/plain" and not body_text:
-                try:
-                    payload = part.get_payload(decode=True)
-                    if payload:
-                        charset = part.get_content_charset() or "utf-8"
-                        body_text = payload.decode(charset, errors="replace").strip()
-                        print(f"Found text/plain: {len(body_text)} chars")
-                except Exception as e:
-                    print(f"Error extracting text/plain: {e}")
-                    
-            elif content_type == "text/html" and not html_body:
-                try:
-                    payload = part.get_payload(decode=True)
-                    if payload:
-                        charset = part.get_content_charset() or "utf-8"
-                        html_body = payload.decode(charset, errors="replace").strip()
-                        print(f"Found text/html: {len(html_body)} chars")
-                except Exception as e:
-                    print(f"Error extracting text/html: {e}")
-                    
-            # Stop if we have both
-            if body_text and html_body:
-                break
-    else:
-        # Non-multipart message
-        content_type = msg.get_content_type()
-        try:
-            payload = msg.get_payload(decode=True)
-            if payload:
-                charset = msg.get_content_charset() or "utf-8"
-                decoded = payload.decode(charset, errors="replace").strip()
-                if content_type == "text/html":
-                    html_body = decoded
-                    body_text = decoded  # Use HTML as fallback
-                else:
-                    body_text = decoded
-                print(f"Non-multipart {content_type}: {len(decoded)} chars")
+                return
+
+            payload = part.get_payload(decode=True)
+            if not payload:
+                return
+
+            charset = part.get_content_charset() or "utf-8"
+            text = payload.decode(charset, errors="replace").strip()
+
+            if content_type == "text/plain":
+                plain_candidates.append(text)
+                print(f"Found text/plain candidate: {len(text)} chars")
+            elif content_type == "text/html":
+                html_candidates.append(text)
+                print(f"Found text/html candidate: {len(text)} chars")
         except Exception as e:
-            print(f"Error extracting non-multipart body: {e}")
-    
+            print(f"Error walking part: {e}")
+
+    walk(msg)
+
+    body_text = ""
+    html_body = None
+
+    if plain_candidates:
+        # Choose the longest non-empty plain text candidate
+        body_text = max(plain_candidates, key=len)
+    if html_candidates:
+        # Choose the longest non-empty html candidate
+        html_body = max(html_candidates, key=len)
+
     # Use HTML as fallback if no plain text
     if not body_text and html_body:
         body_text = html_body
-        
+
     return body_text, html_body
 
 def save_email_to_mongodb(email_data, webhook_url=None, webhook_response=None, webhook_status_code=None):
@@ -260,7 +251,7 @@ def lambda_handler(event, context):
                 custom_headers[header] = msg[header]
                 
         body = ""
-        html_body = ""  # Store HTML version separately
+        html_body = None  # Store HTML version separately
         attachments = []
 
         print(f"Sender: {sender}")
@@ -330,6 +321,8 @@ def lambda_handler(event, context):
         # Extract email body using dedicated function
         print("=== Extracting Email Body ===")
         body, html_body = extract_email_body(msg)
+        print(f"After extraction - body: '{body[:100]}...' (length: {len(body)})")
+        print(f"After extraction - html_body: {html_body[:100] if html_body else 'None'}... (length: {len(html_body) if html_body else 0})")
         
         # Extract attachments
         print("=== Extracting Attachments ===")
@@ -399,10 +392,32 @@ def lambda_handler(event, context):
         print(f"Number of attachments: {len(attachments)}")
 
         # Construct payload
+        print("=== Constructing Payload ===")
+        # Determine local_part and domain robustly
+        domain_part = None
+        local_part = None
+        try:
+            if received_from and '@' in received_from:
+                local_part, domain_part = received_from.split('@', 1)
+            else:
+                from email.utils import getaddresses
+                addresses = getaddresses([recipient]) if recipient else []
+                email_addr = addresses[0][1] if addresses else ''
+                if email_addr and '@' in email_addr:
+                    local_part, domain_part = email_addr.split('@', 1)
+                else:
+                    # Fallbacks
+                    domain_part = kv_key or ''
+                    local_part = ''
+        except Exception as e:
+            print(f"Error determining local/domain parts: {e}")
+            domain_part = kv_key or ''
+            local_part = ''
+
         parsed_email = {
             "email_id": email_object_key,
-            "domain": received_from.split('@')[1],
-            "local_part": received_from.split('@')[0],
+            "domain": domain_part,
+            "local_part": local_part,
             "sender": sender,
             "recipient": recipient,
             "subject": subject,
@@ -416,7 +431,7 @@ def lambda_handler(event, context):
             "importance": importance,
             "custom_headers": custom_headers,
             "body": body,
-            "html_body": html_body if html_body else None,  # Include HTML body if available
+            "html_body": html_body,  # Include HTML body if available (already None if empty)
             "attachments": attachments
         }
 
