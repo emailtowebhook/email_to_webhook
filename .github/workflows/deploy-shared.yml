@@ -1,0 +1,49 @@
+name: Deploy Shared Infrastructure
+
+# Manual trigger only - shared infrastructure is deployed once and used by all environments
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-shared:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: "us-east-1"
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        run: |
+          cd infra/shared
+          terraform init
+
+      - name: Terraform Plan
+        run: |
+          cd infra/shared
+          terraform plan
+
+      - name: Terraform Apply
+        run: |
+          cd infra/shared
+          terraform apply -auto-approve
+
+      - name: Output Results
+        run: |
+          cd infra/shared
+          echo "✅ Shared infrastructure deployed successfully!"
+          echo ""
+          echo "Shared Email Bucket: $(terraform output -raw shared_email_bucket_name)"
+          echo "SES Receipt Rule Set: $(terraform output -raw ses_receipt_rule_set_name)"
+          echo ""
+          echo "You can now deploy per-environment infrastructure using the Deploy Infrastructure workflow."
+

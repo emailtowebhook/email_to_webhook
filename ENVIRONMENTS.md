@@ -1,10 +1,35 @@
 # Multi-Environment Management Guide
 
-This project uses **separate Terraform state files per environment** to safely manage multiple deployments (main, preview, dev, etc.).
+This project uses a **two-tier infrastructure model** with shared SES resources and per-environment application resources.
 
 ## Architecture
 
-### State File Structure
+### Two-Tier Infrastructure Model
+
+#### 1. Shared Infrastructure (`infra/shared/`)
+AWS SES has account-level limitations - only one receipt rule set can be active at a time. Therefore, SES resources are deployed once and shared across all environments:
+
+**Resources:**
+- SES receipt rule set (account-level resource)
+- SES receipt rules (routes all emails to shared bucket)
+- Shared email S3 bucket (`email-to-webhook-emails-shared`)
+
+**State File:**
+```
+S3: terraform-tregfd/terraform/shared/state.tfstate
+```
+
+#### 2. Per-Environment Infrastructure (`infra/`)
+Each environment (main, preview, dev, etc.) gets its own isolated application resources:
+
+**Resources:**
+- Lambda functions (unique per environment)
+- API Gateway endpoints (unique per environment)
+- IAM roles and policies (namespaced by environment)
+- Attachments S3 bucket (unique per environment)
+- KV database S3 bucket (unique per environment)
+
+**State Files:**
 ```
 S3 Bucket: terraform-tregfd
 ├── terraform/main/state.tfstate       (production)
@@ -13,11 +38,33 @@ S3 Bucket: terraform-tregfd
 └── terraform/<branch>/state.tfstate   (feature branches)
 ```
 
-Each environment has its own isolated state file in S3.
+### Email Routing
+All emails are stored in the shared S3 bucket. Each environment's Lambda function uses S3 prefix filters to process only its relevant emails (e.g., `main/`, `preview/`, `dev/`).
 
 ---
 
-## Usage
+## Initial Setup
+
+### Step 1: Deploy Shared Infrastructure (One-Time)
+
+Before deploying any environment, you must deploy the shared SES infrastructure:
+
+```bash
+./deploy-shared.sh
+```
+
+Or via GitHub Actions: Run the "Deploy Shared Infrastructure" workflow manually.
+
+**What this creates:**
+- SES receipt rule set
+- Shared email S3 bucket
+- SES routing rules
+
+**Important:** This only needs to be done once per AWS account.
+
+---
+
+## Daily Usage
 
 ### Deploying Environments
 
@@ -43,9 +90,9 @@ ENVIRONMENT=dev ./deploy.sh
 ENVIRONMENT=feature-xyz ./deploy.sh
 ```
 
----
-
 ### Destroying Environments
+
+**Important:** Destroying an environment does NOT destroy shared SES infrastructure.
 
 **Destroy Main Environment**
 ```bash
@@ -64,6 +111,23 @@ ENVIRONMENT=preview ./destroy.sh
 ENVIRONMENT=<env-name> ./destroy.sh
 ```
 
+### Destroying Shared Infrastructure
+
+**⚠️ WARNING: This affects ALL environments!**
+
+Only destroy shared infrastructure when you're done with ALL environments:
+
+```bash
+./destroy-shared.sh
+```
+
+Or via GitHub Actions: Run the "Destroy Shared Infrastructure" workflow (requires typing "destroy-all" to confirm).
+
+This will:
+- Deactivate SES receipt rule set
+- Delete shared email bucket
+- Remove all SES routing rules
+
 ---
 
 ## How It Works
@@ -79,10 +143,16 @@ Each environment gets its own state file:
 - State path: `terraform/${ENVIRONMENT}/state.tfstate`
 
 ### 3. **Resource Namespacing**
-Resources are namespaced by environment:
+
+**Shared Resources (no namespacing):**
+- Email S3 bucket: `email-to-webhook-emails-shared`
+- SES receipt rule set: `default-rule-set`
+
+**Per-Environment Resources (namespaced):**
 - S3 buckets: `bucket-name-${environment}`
 - API Gateway: `EmailParserAPI-${environment}`
 - Lambda functions: `function-name-${environment}`
+- IAM roles/policies: `role-name-${environment}`
 
 ---
 

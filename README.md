@@ -16,14 +16,25 @@ A hosted version of this service is available at [emailtowebhook.com](https://em
 
 ## Deployment
 
-### Multi-Environment Support
+### Two-Tier Infrastructure
 
-This project supports **separate deployments per environment** (main, preview, dev, feature branches) with isolated state management.
+This project uses a **shared + per-environment model** to handle AWS SES limitations:
+
+1. **Shared Infrastructure** (deploy once):
+   - SES receipt rules (account-level, shared by all environments)
+   - Shared email S3 bucket
+2. **Per-Environment Infrastructure** (deploy per branch/environment):
+   - Lambda functions
+   - API Gateway endpoints
+   - IAM roles and policies
 
 **Quick Start:**
 
 ```bash
-# Deploy to main (production)
+# Step 1: Deploy shared infrastructure (one-time)
+./deploy-shared.sh
+
+# Step 2: Deploy your first environment
 ./deploy.sh
 
 # Deploy to other environments

@@ -27,11 +27,7 @@ variable "database_bucket_name" {
   type        = string
 }
 
-variable "email_bucket_name" {
-  description = "The name of s3 bucket for lambda deployment"
-  default = "email-to-webhook-emails"
-  type = string
-}
+# Note: email_bucket_name is now managed in infra/shared/ as a shared resource
 
 variable "attachments_bucket_name" {
   description = "The name of the S3 bucket for email attachments"
