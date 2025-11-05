@@ -13,9 +13,10 @@ provider "aws" {
 terraform {
   backend "s3" {
     bucket         = "terraform-tregfd"
-    key            = "terraform/state.tfstate" # Shared state file for all environments
+    # key is set dynamically during terraform init based on environment
+    # key = "terraform/${environment}/state.tfstate"
     region         = "us-east-1"
-    encrypt        = true # Enable server-side encryption
+    encrypt        = true
   }
 }
  

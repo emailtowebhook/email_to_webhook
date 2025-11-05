@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Get environment name from ENV variable or default to "main"
+ENVIRONMENT=${ENVIRONMENT:-main}
+echo "🌍 Destroying environment: $ENVIRONMENT"
 echo "🧹 Starting cleanup process..."
 
 # Change to the infrastructure directory
@@ -25,13 +28,16 @@ if [ ! -f "../lambda_packages/parser.zip" ]; then
   rm dummy_file
 fi
 
- 
+# Initialize Terraform with environment-specific state
+echo "🔧 Initializing Terraform with environment-specific state..."
+terraform init -reconfigure \
+  -backend-config="key=terraform/${ENVIRONMENT}/state.tfstate"
 
-# Get bucket names from Terraform state safely
+# Get bucket names from Terraform state safely (they include environment suffix)
 echo "📋 Retrieving bucket information from variables.tf..."
-PARSER_BUCKET=$(grep -A2 "database_bucket_name" variables.tf | grep "default" | awk -F'"' '{print $2}')
-ATTACHMENTS_BUCKET=$(grep -A2 "attachments_bucket_name" variables.tf | grep "default" | awk -F'"' '{print $2}')
-emails_bucket=$(grep -A2 "email_bucket_name" variables.tf | grep "default" | awk -F'"' '{print $2}')
+PARSER_BUCKET=$(grep -A2 "database_bucket_name" variables.tf | grep "default" | awk -F'"' '{print $2}')-${ENVIRONMENT}
+ATTACHMENTS_BUCKET=$(grep -A2 "attachments_bucket_name" variables.tf | grep "default" | awk -F'"' '{print $2}')-${ENVIRONMENT}
+emails_bucket=$(grep -A2 "email_bucket_name" variables.tf | grep "default" | awk -F'"' '{print $2}')-${ENVIRONMENT}
 
 # Function to empty an S3 bucket safely
 empty_bucket() {
@@ -49,9 +55,9 @@ empty_bucket "$PARSER_BUCKET"
 empty_bucket "$emails_bucket"
 empty_bucket "$ATTACHMENTS_BUCKET"
 
-# Run terraform destroy
-echo "💥 Running terraform destroy..."
-terraform destroy -auto-approve
+# Run terraform destroy with environment variable
+echo "💥 Running terraform destroy for ${ENVIRONMENT}..."
+terraform destroy -auto-approve -var="environment=${ENVIRONMENT}"
 
 # Clean up the placeholder files
 echo "🧹 Cleaning up placeholder files..."

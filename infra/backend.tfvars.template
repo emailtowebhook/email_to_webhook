@@ -1,0 +1,9 @@
+# This file is a template for backend configuration
+# The actual key will be generated dynamically based on environment
+# Usage: terraform init -backend-config="key=terraform/${ENVIRONMENT}/state.tfstate"
+
+# Example state paths for different environments:
+# main:    terraform/main/state.tfstate
+# preview: terraform/preview/state.tfstate
+# dev:     terraform/dev/state.tfstate
+

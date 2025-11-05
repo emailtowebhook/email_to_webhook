@@ -223,7 +223,7 @@ resource "aws_apigatewayv2_api" "lambda_api" {
   protocol_type = "HTTP"
   
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
@@ -295,7 +295,7 @@ resource "aws_ses_receipt_rule_set" "default_rule_set" {
   rule_set_name = "default-rule-set"
   
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
@@ -348,9 +348,9 @@ resource "aws_ses_receipt_rule" "catch_all_rule" {
 resource "aws_ses_active_receipt_rule_set" "activate_rule_set" {
     rule_set_name = aws_ses_receipt_rule_set.default_rule_set.rule_set_name
     
-    lifecycle {
-      prevent_destroy = true
-    }
+    # lifecycle {
+    #   prevent_destroy = false
+    # }
 }
 
 resource "aws_s3_bucket" "kv_database_bucket" {
