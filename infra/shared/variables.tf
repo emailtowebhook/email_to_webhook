@@ -3,9 +3,3 @@ variable "aws_region" {
   type    = string
 }
 
-variable "email_bucket_name" {
-  description = "The name of the shared S3 bucket for all email storage"
-  default     = "email-to-webhook-emails-shared"
-  type        = string
-}
-

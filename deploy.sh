@@ -11,9 +11,9 @@ TF_COMMAND="terraform"
 ENVIRONMENT=${ENVIRONMENT:-main}
 echo "🌍 Deploying to environment: $ENVIRONMENT"
 
-# Check if shared infrastructure exists
+# Check if shared infrastructure exists by checking for SES rule set
 echo "🔍 Checking for shared infrastructure..."
-if ! aws s3 ls s3://email-to-webhook-emails-shared 2>/dev/null; then
+if ! aws ses describe-receipt-rule-set --rule-set-name default-rule-set --region us-east-1 2>/dev/null > /dev/null; then
   echo ""
   echo "❌ ERROR: Shared infrastructure not deployed!"
   echo ""

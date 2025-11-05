@@ -10,10 +10,9 @@ echo ""
 echo "This will destroy shared SES infrastructure used by ALL environments!"
 echo "This includes:"
 echo "  - SES receipt rule set (all email routing)"
-echo "  - Shared email S3 bucket (all stored emails)"
-echo "  - SES receipt rules"
 echo ""
 echo "Make sure you have destroyed all per-environment resources first."
+echo "Note: Per-environment email buckets are destroyed with each environment."
 echo ""
 read -p "Are you absolutely sure you want to continue? (type 'yes' to confirm): " confirm
 
@@ -34,17 +33,6 @@ terraform init
 # Deactivate the receipt rule set first
 echo "📧 Deactivating SES receipt rule set..."
 aws ses set-active-receipt-rule-set --region us-east-1 2>/dev/null || echo "⚠️  No active rule set to deactivate"
-
-# Empty the shared email bucket
-echo "🗑️  Emptying shared email bucket..."
-BUCKET_NAME=$(terraform output -raw shared_email_bucket_name 2>/dev/null || echo "email-to-webhook-emails-shared")
-if aws s3 ls "s3://${BUCKET_NAME}" 2>/dev/null; then
-  echo "Removing all objects from ${BUCKET_NAME}..."
-  aws s3 rm "s3://${BUCKET_NAME}" --recursive || echo "⚠️  Failed to empty bucket"
-  aws s3 rb "s3://${BUCKET_NAME}" --force || echo "⚠️  Bucket will be removed by Terraform"
-else
-  echo "Bucket ${BUCKET_NAME} doesn't exist or is already empty"
-fi
 
 # Run terraform destroy
 echo "💥 Running terraform destroy..."

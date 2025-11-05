@@ -7,12 +7,11 @@ This project uses a **two-tier infrastructure model** with shared SES resources 
 ### Two-Tier Infrastructure Model
 
 #### 1. Shared Infrastructure (`infra/shared/`)
-AWS SES has account-level limitations - only one receipt rule set can be active at a time. Therefore, SES resources are deployed once and shared across all environments:
+AWS SES has account-level limitations - only one receipt rule set can be active at a time. Therefore, the SES receipt rule set is deployed once and shared across all environments:
 
 **Resources:**
 - SES receipt rule set (account-level resource)
-- SES receipt rules (routes all emails to shared bucket)
-- Shared email S3 bucket (`email-to-webhook-emails-shared`)
+- SES active receipt rule set activation
 
 **State File:**
 ```
@@ -26,8 +25,10 @@ Each environment (main, preview, dev, etc.) gets its own isolated application re
 - Lambda functions (unique per environment)
 - API Gateway endpoints (unique per environment)
 - IAM roles and policies (namespaced by environment)
+- Email S3 bucket for incoming emails (unique per environment)
 - Attachments S3 bucket (unique per environment)
 - KV database S3 bucket (unique per environment)
+- SES receipt rule (routes emails to environment-specific bucket)
 
 **State Files:**
 ```
@@ -39,7 +40,7 @@ S3 Bucket: terraform-tregfd
 ```
 
 ### Email Routing
-All emails are stored in the shared S3 bucket. Each environment's Lambda function uses S3 prefix filters to process only its relevant emails (e.g., `main/`, `preview/`, `dev/`).
+Each environment has its own email S3 bucket (e.g., `email-to-webhook-emails-main`, `email-to-webhook-emails-dev`). Incoming emails are routed to the environment-specific bucket via SES receipt rules, and each environment's Lambda function is triggered by S3 events on its own bucket.
 
 ---
 
@@ -56,9 +57,8 @@ Before deploying any environment, you must deploy the shared SES infrastructure:
 Or via GitHub Actions: Run the "Deploy Shared Infrastructure" workflow manually.
 
 **What this creates:**
-- SES receipt rule set
-- Shared email S3 bucket
-- SES routing rules
+- SES receipt rule set (shared container for all environment receipt rules)
+- Activates the receipt rule set
 
 **Important:** This only needs to be done once per AWS account.
 
@@ -125,8 +125,9 @@ Or via GitHub Actions: Run the "Destroy Shared Infrastructure" workflow (require
 
 This will:
 - Deactivate SES receipt rule set
-- Delete shared email bucket
-- Remove all SES routing rules
+- Remove the shared receipt rule set
+
+**Note:** Per-environment email buckets and receipt rules are automatically destroyed when destroying each environment.
 
 ---
 
@@ -145,11 +146,13 @@ Each environment gets its own state file:
 ### 3. **Resource Namespacing**
 
 **Shared Resources (no namespacing):**
-- Email S3 bucket: `email-to-webhook-emails-shared`
 - SES receipt rule set: `default-rule-set`
 
 **Per-Environment Resources (namespaced):**
-- S3 buckets: `bucket-name-${environment}`
+- Email S3 bucket: `email-to-webhook-emails-${environment}`
+- Attachments S3 bucket: `bucket-name-${environment}`
+- Database S3 bucket: `bucket-name-${environment}`
+- SES receipt rule: `catch-emails-${environment}`
 - API Gateway: `EmailParserAPI-${environment}`
 - Lambda functions: `function-name-${environment}`
 - IAM roles/policies: `role-name-${environment}`

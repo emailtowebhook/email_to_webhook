@@ -7,7 +7,7 @@ echo "🌍 Destroying environment: $ENVIRONMENT"
 echo "🧹 Starting cleanup process..."
 echo ""
 echo "⚠️  Note: This will NOT destroy shared SES infrastructure."
-echo "   Shared email bucket and SES rules will remain active."
+echo "   Shared SES receipt rule set will remain active."
 echo "   To destroy shared infrastructure, run: ./destroy-shared.sh"
 echo ""
 
@@ -42,7 +42,7 @@ terraform init -reconfigure \
 echo "📋 Retrieving bucket information from variables.tf..."
 PARSER_BUCKET=$(grep -A2 "database_bucket_name" variables.tf | grep "default" | awk -F'"' '{print $2}')-${ENVIRONMENT}
 ATTACHMENTS_BUCKET=$(grep -A2 "attachments_bucket_name" variables.tf | grep "default" | awk -F'"' '{print $2}')-${ENVIRONMENT}
-# Note: emails bucket is shared and NOT environment-specific
+EMAIL_BUCKET="email-to-webhook-emails-${ENVIRONMENT}"
 
 # Function to empty an S3 bucket safely
 empty_bucket() {
@@ -55,10 +55,10 @@ empty_bucket() {
   fi
 }
 
-# Empty buckets if they exist (skip shared email bucket)
+# Empty buckets if they exist
 empty_bucket "$PARSER_BUCKET"
 empty_bucket "$ATTACHMENTS_BUCKET"
-# Note: Shared email bucket is NOT destroyed here
+empty_bucket "$EMAIL_BUCKET"
 
 # Run terraform destroy with environment variable
 echo "💥 Running terraform destroy for ${ENVIRONMENT}..."
