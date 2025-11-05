@@ -161,15 +161,6 @@ def delete_domain(domain):
     try:
         # Try to delete from SES
         try:
-            # Delete receipt rule from SES
-            rule_name = f"receive_{domain.replace('.', '_')}"
-            try:
-                ses_client.delete_receipt_rule(
-                    RuleSetName=receipt_rule_set,
-                    RuleName=rule_name
-                )
-            except ses_client.exceptions.RuleDoesNotExistException:
-                pass  # Ignore if rule doesn't exist
             ses_client.delete_identity(
                 Identity=domain
             )
@@ -643,36 +634,6 @@ def lambda_handler(event, context):
             # Format DNS records
             records = format_dns_records(user_domain, token, dkim_tokens, public_key)
 
-            # Create SES receipt rule with hard-coded prefix on bucket
-            if s3_bucket and receipt_rule_set:
-                rule_name = f"receive_{user_domain.replace('.', '_')}"
-                try:
-                    ses_client.create_receipt_rule(
-                        RuleSetName=receipt_rule_set,
-                        Rule={
-                            'Name': rule_name,
-                            'Enabled': True,
-                            'TlsPolicy': 'Optional',
-                            'Recipients': [user_domain],
-                            'Actions': [
-                                {
-                                    'S3Action': {
-                                        'BucketName': s3_bucket,
-                                        #'ObjectKeyPrefix': f"{environment}/"
-                                    }
-                                },
-                                {
-                                    'StopAction': {
-                                        'Scope': 'RuleSet'
-                                    }
-                                }
-                            ],
-                            'ScanEnabled': True
-                        }
-                    )
-                except ses_client.exceptions.AlreadyExistsException:
-                    pass  # Ignore if already exists
-   
             response_data = {
                 "object": "domain",
                 "id": str(uuid.uuid4()),  # Generate a unique ID
