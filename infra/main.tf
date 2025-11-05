@@ -199,6 +199,7 @@ resource "aws_lambda_function" "verify_domain_lambda" {
   environment {
     variables = {
       DATABASE_BUCKET_NAME = var.database_bucket_name
+      EMAIL_BUCKET = aws_s3_bucket.emails_bucket.bucket
       MONGODB_URI = var.mongodb_uri
       ENVIRONMENT = var.environment
       CODE_VERSION = local.verify_lambda_hash  
@@ -324,25 +325,25 @@ resource "aws_s3_bucket_policy" "email_storage_policy" {
 }
 
 # SES Receipt Rule
-resource "aws_ses_receipt_rule" "catch_all_rule" {
-  rule_set_name = aws_ses_receipt_rule_set.default_rule_set.rule_set_name
-  name          = "catch-all-to-s3-${var.environment}"
-  enabled       = true
+# resource "aws_ses_receipt_rule" "catch_all_rule" {
+#   rule_set_name = aws_ses_receipt_rule_set.default_rule_set.rule_set_name
+#   name          = "catch-all-to-s3-${var.environment}"
+#   enabled       = true
 
-  # Match all recipients (empty list means all verified domains)
-  recipients = []
+#   # Match all recipients (empty list means all verified domains)
+#   recipients = []
 
-  # Actions for the receipt rule
-  s3_action {
-    bucket_name      = aws_s3_bucket.emails_bucket.id
-    position      = 1  # Position in the rule set
-   }
+#   # Actions for the receipt rule
+#   s3_action {
+#     bucket_name      = aws_s3_bucket.emails_bucket.id
+#     position      = 1  # Position in the rule set
+#    }
 
-  # Enable email scanning for spam/viruses
-  scan_enabled = true
+#   # Enable email scanning for spam/viruses
+#   scan_enabled = true
 
-  depends_on = [aws_s3_bucket_policy.email_storage_policy, aws_s3_bucket.emails_bucket , aws_ses_receipt_rule_set.default_rule_set]
-}
+#   depends_on = [aws_s3_bucket_policy.email_storage_policy, aws_s3_bucket.emails_bucket , aws_ses_receipt_rule_set.default_rule_set]
+# }
 
 # Activate the Rule Set (only one can be active per AWS account)
 resource "aws_ses_active_receipt_rule_set" "activate_rule_set" {

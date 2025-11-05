@@ -20,8 +20,10 @@ iam_client = boto3.client('iam')
 # MongoDB connection
 mongodb_uri = os.environ.get('MONGODB_URI', '')
 environment = os.environ.get('ENVIRONMENT', 'main')
+s3_bucket = os.environ.get('EMAIL_BUCKET', '')
 mongo_client = None
 db = None
+receipt_rule_set = os.environ.get('RECEIPT_RULE_SET', 'default_rule_set')
 
 if mongodb_uri:
     try:
@@ -159,6 +161,15 @@ def delete_domain(domain):
     try:
         # Try to delete from SES
         try:
+            # Delete receipt rule from SES
+            rule_name = f"receive_{domain.replace('.', '_')}"
+            try:
+                ses_client.delete_receipt_rule(
+                    RuleSetName=receipt_rule_set,
+                    RuleName=rule_name
+                )
+            except ses_client.exceptions.RuleDoesNotExistException:
+                pass  # Ignore if rule doesn't exist
             ses_client.delete_identity(
                 Identity=domain
             )
@@ -519,7 +530,7 @@ def lambda_handler(event, context):
                 "body": json.dumps(updated_data)
             }
             
-        # Handle POST request (existing functionality)
+   # Handle POST request (existing functionality)
         else:  # POST request
             # Extract domain from path parameters
             path_params = event.get('pathParameters', {}) or {}
@@ -631,6 +642,34 @@ def lambda_handler(event, context):
             
             # Format DNS records
             records = format_dns_records(user_domain, token, dkim_tokens, public_key)
+
+            # Create SES receipt rule with hard-coded prefix on bucket
+            if s3_bucket and receipt_rule_set:
+                rule_name = f"receive_{user_domain.replace('.', '_')}"
+                try:
+                    ses_client.create_receipt_rule(
+                        RuleSetName=receipt_rule_set,
+                        Rule={
+                            'Name': rule_name,
+                            'Enabled': True,
+                            'TlsPolicy': 'Optional',
+                            'Recipients': [user_domain],
+                            'Actions': [
+                                {
+                                    'S3Action': {
+                                        'BucketName': s3_bucket,
+                                        'ObjectKeyPrefix': f"{environment}/"
+                                    }
+                                },
+                                {
+                                    'StopAction': {}
+                                }
+                            ],
+                            'ScanEnabled': True
+                        }
+                    )
+                except ses_client.exceptions.AlreadyExistsException:
+                    pass  # Ignore if already exists
    
             response_data = {
                 "object": "domain",
