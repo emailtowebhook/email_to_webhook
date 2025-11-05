@@ -560,14 +560,10 @@ resource "aws_iam_role_policy" "lambda_s3_policy" {
   })
 }
 
-# Reference the shared SES receipt rule set
-data "aws_ses_receipt_rule_set" "default_rule_set" {
-  rule_set_name = "default-rule-set"
-}
-
 # SES Receipt Rule - catch emails for this environment and store in per-environment S3 bucket
+# Note: The rule set "default-rule-set" must exist (created in infra/shared/)
 resource "aws_ses_receipt_rule" "env_catch_rule" {
-  rule_set_name = data.aws_ses_receipt_rule_set.default_rule_set.rule_set_name
+  rule_set_name = "default-rule-set"  # Reference to shared rule set
   name          = "catch-emails-${var.environment}"
   enabled       = true
 
