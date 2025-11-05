@@ -88,6 +88,74 @@ def process_template(template, data):
     
     return pystache.render(template, data)
 
+def extract_email_body(msg):
+    """
+    Recursively extract body content from an email message.
+    Handles both simple and nested multipart structures.
+    
+    Returns:
+        tuple: (body_text, html_body)
+    """
+    body_text = ""
+    html_body = ""
+    
+    if msg.is_multipart():
+        # Iterate through all parts
+        for part in msg.iter_parts():
+            content_type = part.get_content_type()
+            content_disposition = str(part.get_content_disposition() or "").lower()
+            
+            # Skip attachments
+            if "attachment" in content_disposition:
+                continue
+                
+            # Process text parts
+            if content_type == "text/plain" and not body_text:
+                try:
+                    payload = part.get_payload(decode=True)
+                    if payload:
+                        charset = part.get_content_charset() or "utf-8"
+                        body_text = payload.decode(charset, errors="replace").strip()
+                        print(f"Found text/plain: {len(body_text)} chars")
+                except Exception as e:
+                    print(f"Error extracting text/plain: {e}")
+                    
+            elif content_type == "text/html" and not html_body:
+                try:
+                    payload = part.get_payload(decode=True)
+                    if payload:
+                        charset = part.get_content_charset() or "utf-8"
+                        html_body = payload.decode(charset, errors="replace").strip()
+                        print(f"Found text/html: {len(html_body)} chars")
+                except Exception as e:
+                    print(f"Error extracting text/html: {e}")
+                    
+            # Stop if we have both
+            if body_text and html_body:
+                break
+    else:
+        # Non-multipart message
+        content_type = msg.get_content_type()
+        try:
+            payload = msg.get_payload(decode=True)
+            if payload:
+                charset = msg.get_content_charset() or "utf-8"
+                decoded = payload.decode(charset, errors="replace").strip()
+                if content_type == "text/html":
+                    html_body = decoded
+                    body_text = decoded  # Use HTML as fallback
+                else:
+                    body_text = decoded
+                print(f"Non-multipart {content_type}: {len(decoded)} chars")
+        except Exception as e:
+            print(f"Error extracting non-multipart body: {e}")
+    
+    # Use HTML as fallback if no plain text
+    if not body_text and html_body:
+        body_text = html_body
+        
+    return body_text, html_body
+
 def save_email_to_mongodb(email_data, webhook_url=None, webhook_response=None, webhook_status_code=None):
     """
     Save parsed email to MongoDB database if MONGODB_URI environment variable exists
@@ -202,6 +270,21 @@ def lambda_handler(event, context):
         print(f"Email is multipart: {msg.is_multipart()}")
         print(f"Email content type: {msg.get_content_type()}")
         
+        # Debug: Print all parts structure for multipart emails
+        if msg.is_multipart():
+            print("=== Email Parts Structure ===")
+            for i, part in enumerate(msg.iter_parts()):
+                print(f"Part {i}:")
+                print(f"  Content-Type: {part.get_content_type()}")
+                print(f"  Content-Disposition: {part.get_content_disposition()}")
+                print(f"  Has Content-ID: {part.get('Content-ID') is not None}")
+                print(f"  Has filename: {part.get_filename()}")
+                payload = part.get_payload(decode=True)
+                print(f"  Payload length: {len(payload) if payload else 0} bytes")
+        else:
+            payload = msg.get_payload(decode=True)
+            print(f"Non-multipart payload length: {len(payload) if payload else 0} bytes")
+        
         # Retrieve webhook URL from MongoDB
         webhook_url = None
         try:
@@ -244,43 +327,29 @@ def lambda_handler(event, context):
                 'body': "Webhook for domain not found or error occurred."
             }
 
-        # Extract email body and attachments
+        # Extract email body using dedicated function
+        print("=== Extracting Email Body ===")
+        body, html_body = extract_email_body(msg)
+        
+        # Extract attachments
+        print("=== Extracting Attachments ===")
         if msg.is_multipart():
             for part in msg.iter_parts():
                 content_type = part.get_content_type()
                 content_disposition = str(part.get_content_disposition() or "").lower()
                 
                 # Check if this is truly an inline image/attachment
-                # Only consider it inline if it has Content-ID AND it's not text/plain or text/html
                 has_content_id = part.get("Content-ID") is not None
                 is_inline_image = has_content_id and content_type not in ("text/plain", "text/html")
                 is_attachment = "attachment" in content_disposition
+                has_filename = part.get_filename() is not None
+                
+                # Skip text parts (already processed for body)
+                if content_type in ("text/plain", "text/html") and not is_attachment:
+                    continue
 
-                # Process text/plain body parts (prioritize this for body)
-                if content_type == "text/plain" and not is_attachment:
-                    try:
-                        decoded_body = part.get_payload(decode=True)
-                        if decoded_body:
-                            body = decoded_body.decode(part.get_content_charset() or "utf-8", errors="replace")
-                            print(f"Extracted text/plain body: {len(body)} characters")
-                    except Exception as e:
-                        print(f"Error decoding text/plain body: {e}")
-                
-                # Process text/html body parts
-                elif content_type == "text/html" and not is_attachment:
-                    try:
-                        decoded_html = part.get_payload(decode=True)
-                        if decoded_html:
-                            html_body = decoded_html.decode(part.get_content_charset() or "utf-8", errors="replace")
-                            print(f"Extracted text/html body: {len(html_body)} characters")
-                            # Only use HTML as fallback for plain body if plain text is empty
-                            if not body:
-                                body = html_body
-                    except Exception as e:
-                        print(f"Error decoding text/html body: {e}")
-                
                 # Process attachments and inline images
-                elif is_attachment or is_inline_image or part.get_filename():
+                if is_attachment or is_inline_image or has_filename:
                     try:
                         attachment_data = part.get_payload(decode=True)
                         if not attachment_data:
@@ -318,31 +387,11 @@ def lambda_handler(event, context):
                     except Exception as e:
                         print(f"Error processing attachment: {e}")
 
-            # Replace cid: references in the HTML body with the public URLs after processing all parts
+            # Replace cid: references in the HTML body with the public URLs
             if html_body:
                 for attachment in attachments:
                     if attachment.get("inline") and attachment.get("content_id"):
                         html_body = html_body.replace(f"cid:{attachment['content_id']}", attachment['public_url'])
-        else:
-            # Handle non-multipart emails
-            content_type = msg.get_content_type()
-            try:
-                decoded_payload = msg.get_payload(decode=True)
-                if decoded_payload:
-                    charset = msg.get_content_charset() or "utf-8"
-                    decoded_text = decoded_payload.decode(charset, errors="replace")
-                    
-                    if content_type == "text/html":
-                        html_body = decoded_text
-                        body = html_body  # Use HTML as body if that's all we have
-                        print(f"Extracted non-multipart HTML body: {len(body)} characters")
-                    else:
-                        body = decoded_text
-                        print(f"Extracted non-multipart text body: {len(body)} characters")
-                else:
-                    print("Warning: Email payload is empty")
-            except Exception as e:
-                print(f"Error decoding non-multipart email body: {e}")
 
         # Log final body extraction results
         print(f"Final body length: {len(body)} characters")
