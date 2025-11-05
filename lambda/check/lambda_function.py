@@ -365,9 +365,9 @@ def update_ses_receipt_rule(domain, action='add'):
         if not recipients:
             rule_update.pop('Recipients', None)
         
-        # Update the receipt rule
+        # Update the receipt rule using update_receipt_rule method
         try:
-            response = ses_client.put_receipt_rule(
+            response = ses_client.update_receipt_rule(
                 RuleSetName=receipt_rule_set,
                 Rule=rule_update
             )
@@ -423,7 +423,7 @@ def sync_all_domains_to_receipt_rule():
         if not recipients:
             rule_update.pop('Recipients', None)
         
-        ses_client.put_receipt_rule(
+        ses_client.update_receipt_rule(
             RuleSetName=receipt_rule_set,
             Rule=rule_update
         )

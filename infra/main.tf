@@ -127,8 +127,9 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
           "s3:PutObject",
           "s3:DeleteObject",
           "ses:DescribeReceiptRule",
-          "ses:PutReceiptRule",
-          "ses:UpdateReceiptRule"
+          "ses:UpdateReceiptRule",
+          "ses:CreateReceiptRule",
+          "ses:DeleteReceiptRule"
         ],
         Resource = "*"
       },
