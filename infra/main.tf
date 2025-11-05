@@ -7,7 +7,7 @@ resource "aws_s3_bucket" "emails_bucket" {
 
 # IAM Role for Lambda
 resource "aws_iam_role" "lambda_role" {
-  name = "lambda_ses_dns_role"
+  name = "lambda_ses_dns_role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -24,7 +24,7 @@ resource "aws_iam_role" "lambda_role" {
 }
 
 resource "aws_iam_policy" "lambda_policy" {
-  name        = "lambda_ses_policy"
+  name        = "lambda_ses_policy-${var.environment}"
   description = "Policy to allow Lambda to access SES, S3, and CloudWatch"
 
   policy = jsonencode({
@@ -60,7 +60,7 @@ resource "aws_iam_role_policy_attachment" "lambda_role_attachment" {
 
 # Create the IAM Role for the Lambda Function
 resource "aws_iam_role" "verify_domain_lambda_role" {
-  name = "verify-domain-lambda-role"
+  name = "verify-domain-lambda-role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -78,7 +78,7 @@ resource "aws_iam_role" "verify_domain_lambda_role" {
 
 # Attach a Policy to the Lambda Role
 resource "aws_iam_policy" "verify_domain_lambda_policy" {
-  name = "verify-domain-lambda-policy"
+  name = "verify-domain-lambda-policy-${var.environment}"
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -292,7 +292,7 @@ resource "aws_lambda_permission" "verify_api_gateway_permission" {
  
 
 resource "aws_ses_receipt_rule_set" "default_rule_set" {
-  rule_set_name = "default-rule-set"
+  rule_set_name = "default-rule-set-${var.environment}"
   
   lifecycle {
     prevent_destroy = false
@@ -443,7 +443,7 @@ resource "aws_lambda_function" "parsing_lambda" {
 }
 
 resource "aws_iam_role" "lambda_exec" {
-  name = "lambda_exec_role"
+  name = "lambda_exec_role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -459,7 +459,7 @@ resource "aws_iam_role" "lambda_exec" {
   })
 }
 resource "aws_iam_role_policy" "lambda_ses_smtp_policy" {
-  name = "lambda_ses_smtp_policy"
+  name = "lambda_ses_smtp_policy-${var.environment}"
   role = aws_iam_role.lambda_exec.name
 
   policy = jsonencode({
@@ -571,7 +571,7 @@ resource "aws_lambda_permission" "allow_s3_to_invoke" {
 
 # Add this new resource to attach S3 read permissions to the role
 resource "aws_iam_role_policy" "lambda_s3_policy" {
-  name   = "lambda_s3_policy"
+  name   = "lambda_s3_policy-${var.environment}"
   role   = aws_iam_role.lambda_exec.id
   policy = jsonencode({
     Version = "2012-10-17",
