@@ -580,8 +580,8 @@ resource "aws_ses_receipt_rule" "env_catch_rule" {
   
   # Note: Rule positioning is handled by the order of rule creation
   # Rules are evaluated in the order they appear in the rule set
-  # To ensure proper priority, deploy environments in order: main, preview, dev
-  # Or use the sync endpoint to update recipient lists after deployment
+  # Each environment's rule filters by domain recipients
+  # This ensures proper isolation without requiring specific rule order
 
   # Match all recipients (empty list means all verified domains)
   # This will be dynamically updated by the Lambda function when domains are registered
@@ -597,4 +597,9 @@ resource "aws_ses_receipt_rule" "env_catch_rule" {
   scan_enabled = true
 
   depends_on = [aws_s3_bucket_policy.email_storage_policy, aws_s3_bucket.emails_bucket]
+  
+  # Lifecycle rule to prevent positioning conflicts
+  lifecycle {
+    ignore_changes = [after]
+  }
 }
