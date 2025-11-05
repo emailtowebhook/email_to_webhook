@@ -290,13 +290,16 @@ def get_current_receipt_rule():
     """Get the current receipt rule for this environment."""
     rule_name = f"catch-emails-{environment}"
     try:
+        print(f"Fetching receipt rule: {rule_name} from rule set: {receipt_rule_set}")
         response = ses_client.describe_receipt_rule(
             RuleSetName=receipt_rule_set,
             RuleName=rule_name
         )
-        return response.get('Rule', {})
+        rule = response.get('Rule', {})
+        print(f"Current rule recipients: {rule.get('Recipients', [])}")
+        return rule
     except ses_client.exceptions.RuleDoesNotExistException:
-        print(f"Receipt rule {rule_name} does not exist")
+        print(f"Receipt rule {rule_name} does not exist in rule set {receipt_rule_set}")
         return None
     except Exception as e:
         print(f"Error getting receipt rule: {str(e)}")
@@ -326,10 +329,9 @@ def update_ses_receipt_rule(domain, action='add'):
         # Get current recipients list
         recipients = current_rule.get('Recipients', [])
         
-        # Prepare the domain format (email format)
-        # SES expects recipients in email format, so we'll use a wildcard-like approach
-        # by adding the domain itself as a recipient
-        domain_recipient = f"@{domain}"
+        # SES recipient conditions: to match all emails for a domain, 
+        # just add the domain itself (e.g., "example.com" matches all emails @example.com)
+        domain_recipient = domain
         
         if action == 'add':
             if domain_recipient not in recipients:
@@ -364,13 +366,18 @@ def update_ses_receipt_rule(domain, action='add'):
             rule_update.pop('Recipients', None)
         
         # Update the receipt rule
-        ses_client.put_receipt_rule(
-            RuleSetName=receipt_rule_set,
-            Rule=rule_update
-        )
-        
-        print(f"Successfully updated receipt rule for domain {domain}")
-        return True
+        try:
+            response = ses_client.put_receipt_rule(
+                RuleSetName=receipt_rule_set,
+                Rule=rule_update
+            )
+            print(f"Successfully updated receipt rule for domain {domain}")
+            print(f"Rule now has {len(recipients)} recipients: {recipients}")
+            print(f"SES Response: {response}")
+            return True
+        except Exception as update_error:
+            print(f"Failed to update receipt rule: {str(update_error)}")
+            raise
         
     except Exception as e:
         print(f"Error updating receipt rule: {str(e)}")
@@ -399,8 +406,8 @@ def sync_all_domains_to_receipt_rule():
             print("Receipt rule not found, cannot sync")
             return False
         
-        # Prepare recipients list
-        recipients = [f"@{domain}" for domain in domain_list]
+        # Prepare recipients list - just the domain names (matches all emails @domain)
+        recipients = domain_list
         
         # Update the rule with all domains
         rule_update = {
@@ -435,6 +442,40 @@ def lambda_handler(event, context):
         
         http_method = event['requestContext']['http']['method']
         raw_path = event.get('rawPath', '')
+        
+        # Handle debug endpoint to check current receipt rule state
+        if http_method == 'GET' and raw_path.endswith('/debug/receipt-rule'):
+            print("Getting current receipt rule state")
+            
+            rule = get_current_receipt_rule()
+            
+            if rule:
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Content-Type": "application/json"
+                    },
+                    "body": json.dumps({
+                        "rule_name": rule.get('Name'),
+                        "enabled": rule.get('Enabled'),
+                        "recipients": rule.get('Recipients', []),
+                        "recipients_count": len(rule.get('Recipients', [])),
+                        "environment": environment,
+                        "receipt_rule_set": receipt_rule_set
+                    })
+                }
+            else:
+                return {
+                    "statusCode": 404,
+                    "headers": {
+                        "Content-Type": "application/json"
+                    },
+                    "body": json.dumps({
+                        "error": f"Receipt rule not found for environment: {environment}",
+                        "rule_name": f"catch-emails-{environment}",
+                        "receipt_rule_set": receipt_rule_set
+                    })
+                }
         
         # Handle sync endpoint
         if http_method == 'POST' and raw_path.endswith('/sync'):

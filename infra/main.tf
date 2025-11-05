@@ -323,6 +323,13 @@ resource "aws_apigatewayv2_route" "sync_domains_route" {
   target    = "integrations/${aws_apigatewayv2_integration.verify_lambda_integration.id}"
 }
 
+# API Gateway GET Route for debugging receipt rule state
+resource "aws_apigatewayv2_route" "debug_receipt_rule_route" {
+  api_id    = aws_apigatewayv2_api.lambda_api.id
+  route_key = "GET /v1/debug/receipt-rule"
+  target    = "integrations/${aws_apigatewayv2_integration.verify_lambda_integration.id}"
+}
+
 # Lambda Permission for API Gateway
 resource "aws_lambda_permission" "verify_api_gateway_permission" {
   statement_id  = "AllowAPIGatewayInvoke-${var.environment}"
