@@ -7,21 +7,26 @@ This project uses a **two-tier infrastructure model** with shared SES resources 
 ### Two-Tier Infrastructure Model
 
 #### 1. Shared Infrastructure (`infra/shared/`)
+
 AWS SES has account-level limitations - only one receipt rule set can be active at a time. Therefore, the SES receipt rule set is deployed once and shared across all environments:
 
 **Resources:**
+
 - SES receipt rule set (account-level resource)
 - SES active receipt rule set activation
 
 **State File:**
+
 ```
 S3: terraform-tregfd/terraform/shared/state.tfstate
 ```
 
 #### 2. Per-Environment Infrastructure (`infra/`)
+
 Each environment (main, preview, dev, etc.) gets its own isolated application resources:
 
 **Resources:**
+
 - Lambda functions (unique per environment)
 - API Gateway endpoints (unique per environment)
 - IAM roles and policies (namespaced by environment)
@@ -31,6 +36,7 @@ Each environment (main, preview, dev, etc.) gets its own isolated application re
 - SES receipt rule (routes emails to environment-specific bucket)
 
 **State Files:**
+
 ```
 S3 Bucket: terraform-tregfd
 ├── terraform/main/state.tfstate       (production)
@@ -40,6 +46,7 @@ S3 Bucket: terraform-tregfd
 ```
 
 ### Email Routing
+
 Each environment has its own email S3 bucket (e.g., `email-to-webhook-emails-main`, `email-to-webhook-emails-dev`). Incoming emails are routed to the environment-specific bucket via SES receipt rules, and each environment's Lambda function is triggered by S3 events on its own bucket.
 
 ---
@@ -57,6 +64,7 @@ Before deploying any environment, you must deploy the shared SES infrastructure:
 Or via GitHub Actions: Run the "Deploy Shared Infrastructure" workflow manually.
 
 **What this creates:**
+
 - SES receipt rule set (shared container for all environment receipt rules)
 - Activates the receipt rule set
 
@@ -69,6 +77,7 @@ Or via GitHub Actions: Run the "Deploy Shared Infrastructure" workflow manually.
 ### Deploying Environments
 
 **Deploy to Main (Production)**
+
 ```bash
 ./deploy.sh
 # or explicitly:
@@ -76,16 +85,19 @@ ENVIRONMENT=main ./deploy.sh
 ```
 
 **Deploy to Preview/Staging**
+
 ```bash
 ENVIRONMENT=preview ./deploy.sh
 ```
 
 **Deploy to Development**
+
 ```bash
 ENVIRONMENT=dev ./deploy.sh
 ```
 
 **Deploy to Feature Branch**
+
 ```bash
 ENVIRONMENT=feature-xyz ./deploy.sh
 ```
@@ -95,6 +107,7 @@ ENVIRONMENT=feature-xyz ./deploy.sh
 **Important:** Destroying an environment does NOT destroy shared SES infrastructure.
 
 **Destroy Main Environment**
+
 ```bash
 ./destroy.sh
 # or explicitly:
@@ -102,11 +115,13 @@ ENVIRONMENT=main ./destroy.sh
 ```
 
 **Destroy Preview Environment**
+
 ```bash
 ENVIRONMENT=preview ./destroy.sh
 ```
 
 **Destroy Any Environment**
+
 ```bash
 ENVIRONMENT=<env-name> ./destroy.sh
 ```
@@ -124,6 +139,7 @@ Only destroy shared infrastructure when you're done with ALL environments:
 Or via GitHub Actions: Run the "Destroy Shared Infrastructure" workflow (requires typing "destroy-all" to confirm).
 
 This will:
+
 - Deactivate SES receipt rule set
 - Remove the shared receipt rule set
 
@@ -134,21 +150,27 @@ This will:
 ## How It Works
 
 ### 1. **Environment Variable**
+
 The `ENVIRONMENT` variable determines which state file to use:
+
 - Defaults to `main` if not specified
 - Can be any valid identifier (alphanumeric, hyphens)
 
 ### 2. **State File Isolation**
+
 Each environment gets its own state file:
+
 - `terraform init` uses `-backend-config` to set the state path
 - State path: `terraform/${ENVIRONMENT}/state.tfstate`
 
 ### 3. **Resource Namespacing**
 
 **Shared Resources (no namespacing):**
+
 - SES receipt rule set: `default-rule-set`
 
 **Per-Environment Resources (namespaced):**
+
 - Email S3 bucket: `email-to-webhook-emails-${environment}`
 - Attachments S3 bucket: `bucket-name-${environment}`
 - Database S3 bucket: `bucket-name-${environment}`
@@ -162,10 +184,11 @@ Each environment gets its own state file:
 ## CI/CD Integration
 
 ### GitHub Actions Example
+
 ```yaml
 - name: Deploy to Environment
   env:
-    ENVIRONMENT: ${{ github.ref_name }}  # Uses branch name
+    ENVIRONMENT: ${{ github.ref_name }} # Uses branch name
     AWS_REGION: us-east-1
   run: ./deploy.sh
 ```
@@ -177,12 +200,14 @@ The environment is automatically set to the branch name, creating isolated deplo
 ## Best Practices
 
 ### ✅ DO
+
 - Use descriptive environment names (`main`, `preview`, `dev`)
 - Always specify `ENVIRONMENT` in CI/CD
 - Keep `main` as your production environment
 - Review `terraform plan` before applying changes
 
 ### ❌ DON'T
+
 - Don't use special characters in environment names (stick to alphanumeric + hyphens)
 - Don't manually edit state files
 - Don't share state files between environments
@@ -192,7 +217,9 @@ The environment is automatically set to the branch name, creating isolated deplo
 ## Troubleshooting
 
 ### State File Not Found
+
 If you see "No state file found":
+
 ```bash
 # Reinitialize with correct environment
 cd infra
@@ -201,7 +228,9 @@ ENVIRONMENT=your-env terraform init -reconfigure \
 ```
 
 ### Wrong Environment Deployed
+
 State files are isolated, so you can safely:
+
 ```bash
 # Destroy the wrong environment
 ENVIRONMENT=wrong-env ./destroy.sh
@@ -234,6 +263,7 @@ terraform state list
 ## Cost Considerations
 
 ### Multiple Environments
+
 - Each environment creates separate AWS resources
 - Costs scale linearly with number of active environments
 - Remember to destroy unused environments to save costs
@@ -244,4 +274,3 @@ terraform state list
 
 - [Terraform Backend Configuration](https://www.terraform.io/docs/language/settings/backends/s3.html)
 - [Managing Multiple Environments](https://www.terraform.io/docs/cloud/guides/recommended-practices/part1.html)
-
