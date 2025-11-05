@@ -2,72 +2,12 @@ name: Deploy Infrastructure
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
-    branches: [main]
+    branches: ['**']
   workflow_dispatch:
 
 jobs:
-  check-secrets:
-    runs-on: ubuntu-latest
-    outputs:
-      has_db_connection_string: ${{ steps.check_secrets.outputs.has_db_connection_string }}
-    steps:
-      - id: check_secrets
-        run: |
-          if [[ -n "${{ secrets.DB_CONNECTION_STRING }}" ]]; then
-            echo "has_db_connection_string=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_db_connection_string=false" >> $GITHUB_OUTPUT
-          fi
-
-  migrate-database:
-    needs: check-secrets
-    if: needs.check-secrets.outputs.has_db_connection_string == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
-
-      - name: Setup database
-        env:
-          DATABASE_URL: ${{ secrets.DB_CONNECTION_STRING }}
-        run: |
-          # Create SQL script for database setup
-          echo "
-          CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
-          CREATE TABLE IF NOT EXISTS \"ParsedEmail\" (
-            id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-            domain TEXT NOT NULL,
-            local_part TEXT NOT NULL,
-            email_id TEXT NOT NULL,
-            is_function_called BOOLEAN NOT NULL DEFAULT false,
-            function_run_id TEXT,
-            function_url TEXT,
-            function_response TEXT,
-            function_status_code INTEGER,
-            is_webhook_sent BOOLEAN NOT NULL DEFAULT false,
-            webhook_url TEXT,
-            webhook_payload JSONB,
-            webhook_response TEXT,
-            webhook_status_code INTEGER,
-            email_data JSONB NOT NULL,
-            created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-          );" > setup.sql
-
-          # Extract connection parameters from DATABASE_URL
-          DB_HOST=$(echo $DATABASE_URL | sed -n 's/.*@\([^:]*\).*/\1/p')
-          DB_PORT=$(echo $DATABASE_URL | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
-          DB_NAME=$(echo $DATABASE_URL | sed -n 's/.*\/\([^?]*\).*/\1/p')
-          DB_USER=$(echo $DATABASE_URL | sed -n 's/.*:\/\/\([^:]*\):.*/\1/p')
-          DB_PASS=$(echo $DATABASE_URL | sed -n 's/.*:\/\/[^:]*:\([^@]*\).*/\1/p')
-
-          # Execute SQL script
-          PGPASSWORD=$DB_PASS psql -h $DB_HOST -p $DB_PORT -d $DB_NAME -U $DB_USER -f setup.sql
-
   deploy:
     runs-on: ubuntu-latest
 
@@ -84,6 +24,10 @@ jobs:
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v2
+
+      - name: Extract branch name
+        shell: bash
+        run: echo "BRANCH_NAME=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
 
       - name: Package Check Lambda function
         run: |
@@ -102,7 +46,7 @@ jobs:
       - name: Terraform Apply
         run: |
           cd infra
-          terraform apply -var="aws_account_id=${{ secrets.AWS_ACCOUNT_ID }}" -var="db_connection_string=${{ secrets.DB_CONNECTION_STRING }}" -auto-approve
+          terraform apply -var="aws_account_id=${{ secrets.AWS_ACCOUNT_ID }}" -var="mongodb_uri=${{ secrets.MONGODB_URI }}" -var="environment=${BRANCH_NAME}" -auto-approve
 
       - name: Clean up Lambda packages
         run: |

@@ -22,7 +22,7 @@ variable "parser_lambda_file_path" {
 }
 
 variable "database_bucket_name" {
-  description = "The name of the S3 bucket for email webhooks, act as KV store"
+  description = "The name of the S3 bucket for email webhooks, act as KV store (deprecated, kept for backward compatibility)"
   default     = "email-to-webhook-kv-database"
   type        = string
 }
@@ -39,9 +39,16 @@ variable "attachments_bucket_name" {
   type        = string
 }
 
-variable "db_connection_string" {
-  description = "The PostgreSQL database connection string for email storage"
+variable "mongodb_uri" {
+  description = "The MongoDB connection URI for email and domain storage"
   default     = ""
+  type        = string
+  sensitive   = true
+}
+
+variable "environment" {
+  description = "Environment name (branch name) to namespace resources"
+  default     = "main"
   type        = string
 }
 

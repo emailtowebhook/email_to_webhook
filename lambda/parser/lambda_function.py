@@ -11,17 +11,33 @@ import requests  # For HTTP POST requests
 import uuid
 import os
 import re
-import psycopg2
 from datetime import datetime
 import pystache  # Python implementation of Mustache.js
 import ipaddress
 from urllib.parse import urlparse
+from pymongo import MongoClient
+from pymongo.errors import PyMongoError
 
 # Initialize clients
 s3_client = boto3.client('s3')
 
+# MongoDB connection
+mongodb_uri = os.environ.get('MONGODB_URI', '')
+environment = os.environ.get('ENVIRONMENT', 'main')
+mongo_client = None
+db = None
+
+if mongodb_uri:
+    try:
+        mongo_client = MongoClient(mongodb_uri)
+        # Use environment-specific database name
+        db_name = f"email_webhooks_{environment.replace('/', '_')}"  # Replace / in branch names
+        db = mongo_client[db_name]
+        print(f"MongoDB connection initialized successfully, using database: {db.name}")
+    except Exception as e:
+        print(f"Failed to initialize MongoDB connection: {e}")
+
 attachments_bucket_name = os.environ.get('ATTACHMENTS_BUCKET_NAME', 'email-attachments-bucket-3rfrd')
-kv_database_bucket_name = os.environ.get('DATABASE_BUCKET_NAME', 'email-webhooks-bucket-3rfrd')
 
 
 def validate_webhook_url(url):
@@ -72,80 +88,65 @@ def process_template(template, data):
     
     return pystache.render(template, data)
 
-def save_email_to_database(email_data, webhook_url=None, webhook_response=None, webhook_status_code=None):
+def save_email_to_mongodb(email_data, webhook_url=None, webhook_response=None, webhook_status_code=None):
     """
-    Save parsed email to PostgreSQL database if DB_CONNECTION_STRING environment variable exists
+    Save parsed email to MongoDB database if MONGODB_URI environment variable exists
     
     Args:
         email_data (dict): Dictionary containing:
             - domain: The domain part of the recipient address
             - local_part: The local part of the recipient address
             - email_id: Full email address identifier
-            - raw_email: The complete email object to store as JSON in email_data
+            - attachments: Array of attachment metadata
+            - All other parsed email fields
         webhook_url (str, optional): The webhook URL to send the email data to
         webhook_response (str, optional): The response from the webhook
         webhook_status_code (int, optional): The status code from the webhook
     """
-    # Check if database connection string exists
-    db_connection_string = os.environ.get('DB_CONNECTION_STRING')
-    
-    if not db_connection_string or db_connection_string == "":
-        print("Database connection string not found, skipping database save")
+    if db is None or not mongodb_uri:
+        print("MongoDB connection not available, skipping database save")
         return
     
     try:
-        # Connect to PostgreSQL
-        conn = psycopg2.connect(db_connection_string)
-        cursor = conn.cursor()
-        query = """
-        INSERT INTO "ParsedEmail" (
-            id, domain, 
-            local_part, 
-            email_id, 
-            email_data,
-            is_webhook_sent, 
-            webhook_url, 
-            webhook_payload, 
-            webhook_response, 
-            webhook_status_code
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
+        # Prepare document for MongoDB
+        email_document = {
+            "_id": f"email_{str(uuid.uuid4())}",
+            "email_id": email_data['email_id'],
+            "domain": email_data['domain'],
+            "local_part": email_data['local_part'],
+            "sender": email_data.get('sender'),
+            "recipient": email_data.get('recipient'),
+            "subject": email_data.get('subject'),
+            "date": email_data.get('date'),
+            "message_id": email_data.get('message_id'),
+            "cc": email_data.get('cc'),
+            "bcc": email_data.get('bcc'),
+            "reply_to": email_data.get('reply_to'),
+            "references": email_data.get('references'),
+            "in_reply_to": email_data.get('in_reply_to'),
+            "importance": email_data.get('importance'),
+            "custom_headers": email_data.get('custom_headers', {}),
+            "body": email_data.get('body'),
+            "html_body": email_data.get('html_body'),
+            "attachments": email_data.get('attachments', []),
+            "email_data": email_data,  # Store complete email data
+            "is_webhook_sent": True,
+            "webhook_url": webhook_url,
+            "webhook_response": webhook_response,
+            "webhook_status_code": webhook_status_code,
+            "created_at": datetime.utcnow()
+        }
         
-        # Determine if webhook was sent successfully
-        is_webhook_sent = True
+        # Insert into parsed_emails collection
+        collection = db['parsed_emails']
+        result = collection.insert_one(email_document)
         
-        # Execute query with parameters
-        cursor.execute(
-            query,
-            (
-                f"email_{str(uuid.uuid4())}",  # Generate a unique ID with email_ prefix
-                email_data['domain'],
-                email_data['local_part'],
-                email_data['email_id'],
-                json.dumps(email_data),  # Convert to JSON string for PostgreSQL JSON type
-                is_webhook_sent,  # is_webhook_sent based on status code
-                webhook_url,  # webhook_url
-                json.dumps({}),  # webhook_payload
-                webhook_response,  # webhook_response
-                webhook_status_code  # webhook_status_code
-            )
-        )
+        print(f"Email {email_data['email_id']} saved to MongoDB successfully with ID: {result.inserted_id}")
         
-        # Commit the transaction
-        conn.commit()
-        
-        print(f"Email {email_data['email_id']} saved to database successfully")
-        
+    except PyMongoError as e:
+        print(f"Failed to save email to MongoDB: {e}")
     except Exception as e:
-        print(f"Failed to save email to database: {e}")
-        # You might want to handle specific exceptions based on your requirements
-    
-    finally:
-        # Close cursor and connection
-        if 'cursor' in locals() and cursor:
-            cursor.close()
-        if 'conn' in locals() and conn:
-            conn.close()
+        print(f"Unexpected error saving email to MongoDB: {e}")
 
 def lambda_handler(event, context):
     # Parse the S3 event
@@ -195,17 +196,42 @@ def lambda_handler(event, context):
         print(f"Recipient: {recipient}")
        
         print(f"Webhook key: {kv_key}")
+        
+        # Retrieve webhook URL from MongoDB
+        webhook_url = None
         try:
-            kv_response = s3_client.get_object(Bucket=kv_database_bucket_name, Key=kv_key)
-            kv_data = json.loads(kv_response['Body'].read())
-            webhook_url = kv_data['webhook']
-            # SECURITY: Validate webhook URL strictly
-            if not validate_webhook_url(webhook_url):
-                print(f"Blocked unsafe webhook URL: {webhook_url}")
+            if db is not None and mongodb_uri:
+                # Query MongoDB for domain configuration
+                domain_configs = db['domain_configs']
+                domain_config = domain_configs.find_one({"domain": kv_key})
+                
+                if domain_config and 'webhook' in domain_config:
+                    webhook_url = domain_config['webhook']
+                    # SECURITY: Validate webhook URL strictly
+                    if not validate_webhook_url(webhook_url):
+                        print(f"Blocked unsafe webhook URL: {webhook_url}")
+                        return {
+                            'statusCode': 400,
+                            'body': "Invalid or unsafe webhook URL."
+                        }
+                else:
+                    print(f"No webhook configuration found for domain {kv_key}")
+                    return {
+                        'statusCode': 404,
+                        'body': f"Webhook configuration for domain {kv_key} not found."
+                    }
+            else:
+                print("MongoDB connection not available")
                 return {
-                    'statusCode': 400,
-                    'body': "Invalid or unsafe webhook URL."
+                    'statusCode': 500,
+                    'body': "Database connection not available."
                 }
+        except PyMongoError as e:
+            print(f"MongoDB error retrieving webhook for domain {kv_key}: {e}")
+            return {
+                'statusCode': 500,
+                'body': "Error retrieving webhook configuration."
+            }
         except Exception as e:
             print(f"Error retrieving webhook for domain {kv_key}: {e}")
             return {
@@ -307,7 +333,7 @@ def lambda_handler(event, context):
             response.raise_for_status()
             print(f"Data sent to webhook {webhook_url} successfully.")
             # Call the updated function with successful webhook details
-            save_email_to_database(
+            save_email_to_mongodb(
                 parsed_email,
                 webhook_url=webhook_url,
                 webhook_response=response.text,
@@ -316,7 +342,7 @@ def lambda_handler(event, context):
         except Exception as e:
             # SECURITY: Log error internally, but do not leak details to response
             print(f"Error sending data to webhook {webhook_url}: {repr(e)}")
-            save_email_to_database(
+            save_email_to_mongodb(
                 parsed_email,
                 webhook_url=webhook_url,
                 webhook_response="Webhook error",

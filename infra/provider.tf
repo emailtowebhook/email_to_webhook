@@ -13,7 +13,7 @@ provider "aws" {
 terraform {
   backend "s3" {
     bucket         = "terraform-tregfd"
-    key            = "terraform/state.tfstate" # Path to the state file in the bucket
+    key            = "terraform/state.tfstate" # Shared state file for all environments
     region         = "us-east-1"
     encrypt        = true # Enable server-side encryption
   }
