@@ -38,7 +38,7 @@ jobs:
       - name: Terraform Destroy
         run: |
           cd infra
-          terraform destroy -var="aws_account_id=${{ secrets.AWS_ACCOUNT_ID }}" -var="db_connection_string=${{ secrets.DB_CONNECTION_STRING }}" -auto-approve
+          terraform destroy -var="aws_account_id=${{ secrets.AWS_ACCOUNT_ID }}"  --auto-approve
 
       - name: Clean up Lambda packages
         run: |
