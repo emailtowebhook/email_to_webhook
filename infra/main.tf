@@ -1,6 +1,6 @@
 # S3 Bucket for Lambda Deployment Package
 resource "aws_s3_bucket" "emails_bucket" {
-  bucket = "${var.email_bucket_name}"
+  bucket = "${var.email_bucket_name}-${var.environment}"
   force_destroy = true
 }
 
