@@ -21,6 +21,10 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v2
 
+      - name: Extract branch name
+        shell: bash
+        run: echo "BRANCH_NAME=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
+
       - name: Package Check Lambda function
         run: |
           mkdir -p lambda_packages
@@ -33,12 +37,21 @@ jobs:
       - name: Terraform Init
         run: |
           cd infra
-          terraform init
+          terraform init -reconfigure \
+            -backend-config="key=terraform/${BRANCH_NAME}/state.tfstate"
+
+      - name: Empty S3 Buckets
+        run: |
+          # Get bucket names with environment suffix
+          ENVIRONMENT=${BRANCH_NAME}
+          aws s3 rb s3://email-to-webhook-kv-database-${ENVIRONMENT} --force || echo "Bucket doesn't exist or already empty"
+          aws s3 rb s3://email-to-webhook-emails-${ENVIRONMENT} --force || echo "Bucket doesn't exist or already empty"
+          aws s3 rb s3://email-to-webhook-attachments-${ENVIRONMENT} --force || echo "Bucket doesn't exist or already empty"
 
       - name: Terraform Destroy
         run: |
           cd infra
-          terraform destroy -var="aws_account_id=${{ secrets.AWS_ACCOUNT_ID }}" -var="db_connection_string=${{ secrets.DB_CONNECTION_STRING }}" -auto-approve
+          terraform destroy -var="aws_account_id=${{ secrets.AWS_ACCOUNT_ID }}" -var="mongodb_uri=${{ secrets.MONGODB_URI }}" -var="environment=${BRANCH_NAME}" --auto-approve
 
       - name: Clean up Lambda packages
         run: |

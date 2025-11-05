@@ -14,7 +14,26 @@ A hosted version of this service is available at [emailtowebhook.com](https://em
 - Automated DNS verification
 - Serverless architecture
 
-## Deployment with GitHub Actions
+## Deployment
+
+### Multi-Environment Support
+
+This project supports **separate deployments per environment** (main, preview, dev, feature branches) with isolated state management.
+
+**Quick Start:**
+
+```bash
+# Deploy to main (production)
+./deploy.sh
+
+# Deploy to other environments
+ENVIRONMENT=preview ./deploy.sh
+ENVIRONMENT=dev ./deploy.sh
+```
+
+📖 **See [ENVIRONMENTS.md](ENVIRONMENTS.md)** for complete multi-environment documentation.
+
+### GitHub Actions
 
 1. Fork/clone this repository
 2. Set repository secrets (the first three are required, the last is optional):
@@ -23,7 +42,7 @@ A hosted version of this service is available at [emailtowebhook.com](https://em
    - `AWS_ACCOUNT_ID`: (required) Your AWS account ID
    - `DB_CONNECTION_STRING`: (optional) Only needed if you use an external database to save email. Not required for standard deployments.
 
-Deployment runs automatically on pushes to main branch or can be triggered manually from Actions tab.
+Deployment runs automatically on pushes to main branch or can be triggered manually from Actions tab. Each branch gets its own isolated environment.
 
 ## Using the API
 

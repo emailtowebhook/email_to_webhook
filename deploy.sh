@@ -7,6 +7,10 @@
 # Define variables
 TF_COMMAND="terraform"
 
+# Get environment name from ENV variable or default to "main"
+ENVIRONMENT=${ENVIRONMENT:-main}
+echo "🌍 Deploying to environment: $ENVIRONMENT"
+
 # Check if AWS CLI is installed
 if ! command -v aws &> /dev/null; then
     echo "AWS CLI is not installed. Please install it before running this script."
@@ -53,12 +57,16 @@ echo "Packaging Parser Lambda function..."
 
 echo "Packaging complete."
 
-# Change directory to the infa folder before running terraform commands
+# Change directory to the infra folder before running terraform commands
 cd infra
 
-# Run terraform commands
-terraform init
-terraform apply -auto-approve
+# Run terraform commands with environment-specific state
+echo "🔧 Initializing Terraform with environment-specific state..."
+terraform init -reconfigure \
+  -backend-config="key=terraform/${ENVIRONMENT}/state.tfstate"
+
+echo "🚀 Applying Terraform configuration for ${ENVIRONMENT}..."
+terraform apply -auto-approve -var="environment=${ENVIRONMENT}"
 
 echo "Deployment complete."
 
