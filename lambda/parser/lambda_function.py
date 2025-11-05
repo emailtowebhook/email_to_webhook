@@ -163,18 +163,21 @@ def lambda_handler(event, context):
         # Parse the email
         msg = BytesParser(policy=policy.default).parsebytes(raw_email)
        
+        # Extract email headers first
+        sender = msg.get('From', '')
+        recipient = msg.get('To', '')
+        
         # Retrieve webhook URL for the domain from the S3 bucket
         # Extract domain from recipient email using regex
         pattern = r"by ([\w\.-]+) with SMTP id ([\w\d]+).*?for ([\w@\.-]+);"
-        match = re.search(pattern, msg['Received'], re.DOTALL)
-        kv_key = match.group(3).split('@')[1] if match else recipient.split('@')[-1].strip('>')
+        received_header = msg.get('Received', '')
+        match = re.search(pattern, received_header, re.DOTALL) if received_header else None
+        kv_key = match.group(3).split('@')[1] if match else (recipient.split('@')[-1].strip('>') if recipient else '')
      
         received_from = match.group(3) if match else None
-        sender = msg['From']
-        recipient = msg['To']
-        subject = msg['Subject']
-        date = msg['Date']  # Extract email date/timestamp
-        message_id = msg['Message-ID']  # Extract unique message ID
+        subject = msg.get('Subject', '')
+        date = msg.get('Date', '')  # Extract email date/timestamp
+        message_id = msg.get('Message-ID', '')  # Extract unique message ID
         cc = msg.get('Cc', '')  # Extract CC recipients
         bcc = msg.get('Bcc', '')  # Extract BCC recipients
         reply_to = msg.get('Reply-To', '')  # Extract Reply-To header
