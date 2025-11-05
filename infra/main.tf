@@ -571,17 +571,6 @@ resource "aws_iam_role_policy" "lambda_s3_policy" {
   })
 }
 
-# Environment-based rule positioning to ensure proper ordering
-locals {
-  # Define rule positions based on environment priority
-  rule_position = {
-    "main"    = 1    # Production gets highest priority
-    "preview" = 2    # Preview/staging is second
-    "dev"     = 3    # Development is third
-    default   = 10   # All other environments (feature branches) get lower priority
-  }
-}
-
 # SES Receipt Rule - catch emails for this environment and store in per-environment S3 bucket
 # Note: The rule set "default-rule-set" must exist (created in infra/shared/)
 resource "aws_ses_receipt_rule" "env_catch_rule" {
@@ -589,15 +578,10 @@ resource "aws_ses_receipt_rule" "env_catch_rule" {
   name          = "catch-emails-${var.environment}"
   enabled       = true
   
-  # Use environment-based positioning
-  # Rules are processed in order - use 'after' to position non-main environments
-  # For 'main' environment, don't specify 'after' so it becomes the first rule
-  # For other environments, position after the appropriate rule based on priority
-  after = var.environment == "main" ? null : (
-    var.environment == "preview" ? "catch-emails-main" : 
-    var.environment == "dev" ? "catch-emails-preview" : 
-    "catch-emails-dev"  # All other environments go after dev
-  )
+  # Note: Rule positioning is handled by the order of rule creation
+  # Rules are evaluated in the order they appear in the rule set
+  # To ensure proper priority, deploy environments in order: main, preview, dev
+  # Or use the sync endpoint to update recipient lists after deployment
 
   # Match all recipients (empty list means all verified domains)
   # This will be dynamically updated by the Lambda function when domains are registered
