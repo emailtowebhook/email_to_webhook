@@ -1,6 +1,6 @@
 # S3 Bucket for Lambda Deployment Package
 resource "aws_s3_bucket" "emails_bucket" {
-  bucket = var.email_bucket_name
+  bucket = "${var.email_bucket_name}-${var.environment}"
   force_destroy = true
  
 }
@@ -188,10 +188,10 @@ locals {
 }
 
 resource "aws_lambda_function" "verify_domain_lambda" {
-  function_name = "verify-domain-lambda"
+  function_name = "verify-domain-lambda-${var.environment}"
   filename      = var.verify_lambda_file_path
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.9"
+  runtime       = "python3.12"
   role          = aws_iam_role.verify_domain_lambda_role.arn
 
   source_code_hash = local.verify_lambda_hash
@@ -199,6 +199,8 @@ resource "aws_lambda_function" "verify_domain_lambda" {
   environment {
     variables = {
       DATABASE_BUCKET_NAME = var.database_bucket_name
+      MONGODB_URI = var.mongodb_uri
+      ENVIRONMENT = var.environment
       CODE_VERSION = local.verify_lambda_hash  
     }
   }
@@ -217,8 +219,12 @@ resource "aws_lambda_function" "verify_domain_lambda" {
 
 # API Gateway
 resource "aws_apigatewayv2_api" "lambda_api" {
-  name          = "EmailParserAPI"
+  name          = "EmailParserAPI-${var.environment}"
   protocol_type = "HTTP"
+  
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # API Gateway Integration with Lambda
@@ -230,10 +236,10 @@ resource "aws_apigatewayv2_integration" "lambda_integration" {
 }
  
 
-# API Gateway Stage
-resource "aws_apigatewayv2_stage" "prod_stage" {
+# API Gateway Stage (per environment/branch)
+resource "aws_apigatewayv2_stage" "env_stage" {
   api_id      = aws_apigatewayv2_api.lambda_api.id
-  name        = "prod"
+  name        = var.environment
   auto_deploy = true
 }
 
@@ -276,17 +282,21 @@ resource "aws_apigatewayv2_route" "get_domain_route" {
 
 # Lambda Permission for API Gateway
 resource "aws_lambda_permission" "verify_api_gateway_permission" {
-  statement_id  = "AllowAPIGatewayInvoke"
+  statement_id  = "AllowAPIGatewayInvoke-${var.environment}"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.verify_domain_lambda.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.lambda_api.execution_arn}/prod/*"
+  source_arn    = "${aws_apigatewayv2_api.lambda_api.execution_arn}/${var.environment}/*"
 }
 
  
 
 resource "aws_ses_receipt_rule_set" "default_rule_set" {
   rule_set_name = "default-rule-set"
+  
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # S3 Bucket Policy to Allow SES Write Access
@@ -316,7 +326,7 @@ resource "aws_s3_bucket_policy" "email_storage_policy" {
 # SES Receipt Rule
 resource "aws_ses_receipt_rule" "catch_all_rule" {
   rule_set_name = aws_ses_receipt_rule_set.default_rule_set.rule_set_name
-  name          = "catch-all-to-s3"
+  name          = "catch-all-to-s3-${var.environment}"
   enabled       = true
 
   # Match all recipients (empty list means all verified domains)
@@ -334,14 +344,17 @@ resource "aws_ses_receipt_rule" "catch_all_rule" {
   depends_on = [aws_s3_bucket_policy.email_storage_policy, aws_s3_bucket.emails_bucket , aws_ses_receipt_rule_set.default_rule_set]
 }
 
-# Activate the Rule Set
+# Activate the Rule Set (only one can be active per AWS account)
 resource "aws_ses_active_receipt_rule_set" "activate_rule_set" {
     rule_set_name = aws_ses_receipt_rule_set.default_rule_set.rule_set_name
-
+    
+    lifecycle {
+      prevent_destroy = true
+    }
 }
 
 resource "aws_s3_bucket" "kv_database_bucket" {
-  bucket = var.database_bucket_name
+  bucket = "${var.database_bucket_name}-${var.environment}"
   force_destroy = true
 }
 
@@ -359,7 +372,7 @@ resource "aws_s3_bucket_acl" "kv_database_bucket_acl" {
 }
 
 resource "aws_s3_bucket" "attachments_bucket" {
-  bucket = var.attachments_bucket_name
+  bucket = "${var.attachments_bucket_name}-${var.environment}"
   force_destroy = true
 }
 
@@ -398,10 +411,10 @@ locals {
 }
 
 resource "aws_lambda_function" "parsing_lambda" {
-  function_name = "email-parser-lambda-function"
+  function_name = "email-parser-lambda-${var.environment}"
   role          = aws_iam_role.lambda_exec.arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.9"
+  runtime       = "python3.12"
   filename      = var.parser_lambda_file_path # Directly reference the ZIP file
 
   # Use the pre-calculated hash from locals
@@ -412,7 +425,8 @@ resource "aws_lambda_function" "parsing_lambda" {
     variables = {
       DATABASE_BUCKET_NAME = var.database_bucket_name
       ATTACHMENTS_BUCKET_NAME = var.attachments_bucket_name
-      DB_CONNECTION_STRING = var.db_connection_string
+      MONGODB_URI = var.mongodb_uri
+      ENVIRONMENT = var.environment
       # Add a marker to track deployments - only changes when code actually changes
       CODE_VERSION = local.parser_lambda_hash
     }
