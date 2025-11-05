@@ -23,7 +23,7 @@ environment = os.environ.get('ENVIRONMENT', 'main')
 s3_bucket = os.environ.get('EMAIL_BUCKET', '')
 mongo_client = None
 db = None
-receipt_rule_set = os.environ.get('RECEIPT_RULE_SET', 'default_rule_set')
+receipt_rule_set = os.environ.get('RECEIPT_RULE_SET', 'default-rule-set')
 
 if mongodb_uri:
     try:
