@@ -125,7 +125,10 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents",
           "s3:PutObject",
-          "s3:DeleteObject"
+          "s3:DeleteObject",
+          "ses:DescribeReceiptRule",
+          "ses:PutReceiptRule",
+          "ses:UpdateReceiptRule"
         ],
         Resource = "*"
       },
@@ -233,7 +236,8 @@ resource "aws_lambda_function" "verify_domain_lambda" {
       DATABASE_BUCKET_NAME = var.database_bucket_name
       MONGODB_URI = var.mongodb_uri
       ENVIRONMENT = var.environment
-      CODE_VERSION = local.verify_lambda_hash  
+      CODE_VERSION = local.verify_lambda_hash
+      RECEIPT_RULE_SET = "default-rule-set"  # Reference to shared rule set
     }
   }
 
@@ -309,6 +313,13 @@ resource "aws_apigatewayv2_route" "update_domain_route" {
 resource "aws_apigatewayv2_route" "get_domain_route" {
   api_id    = aws_apigatewayv2_api.lambda_api.id
   route_key = "GET /v1/domain/{domain}"
+  target    = "integrations/${aws_apigatewayv2_integration.verify_lambda_integration.id}"
+}
+
+# API Gateway POST Route for syncing domains to SES receipt rule
+resource "aws_apigatewayv2_route" "sync_domains_route" {
+  api_id    = aws_apigatewayv2_api.lambda_api.id
+  route_key = "POST /v1/domains/sync"
   target    = "integrations/${aws_apigatewayv2_integration.verify_lambda_integration.id}"
 }
 
@@ -560,14 +571,36 @@ resource "aws_iam_role_policy" "lambda_s3_policy" {
   })
 }
 
+# Environment-based rule positioning to ensure proper ordering
+locals {
+  # Define rule positions based on environment priority
+  rule_position = {
+    "main"    = 1    # Production gets highest priority
+    "preview" = 2    # Preview/staging is second
+    "dev"     = 3    # Development is third
+    default   = 10   # All other environments (feature branches) get lower priority
+  }
+}
+
 # SES Receipt Rule - catch emails for this environment and store in per-environment S3 bucket
 # Note: The rule set "default-rule-set" must exist (created in infra/shared/)
 resource "aws_ses_receipt_rule" "env_catch_rule" {
   rule_set_name = "default-rule-set"  # Reference to shared rule set
   name          = "catch-emails-${var.environment}"
   enabled       = true
+  
+  # Use environment-based positioning
+  # Rules are processed in order - use 'after' to position non-main environments
+  # For 'main' environment, don't specify 'after' so it becomes the first rule
+  # For other environments, position after the appropriate rule based on priority
+  after = var.environment == "main" ? null : (
+    var.environment == "preview" ? "catch-emails-main" : 
+    var.environment == "dev" ? "catch-emails-preview" : 
+    "catch-emails-dev"  # All other environments go after dev
+  )
 
   # Match all recipients (empty list means all verified domains)
+  # This will be dynamically updated by the Lambda function when domains are registered
   recipients = []
 
   # Actions for the receipt rule
