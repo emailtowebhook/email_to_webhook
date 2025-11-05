@@ -89,11 +89,15 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
           "ses:VerifyDomainIdentity",
           "ses:VerifyDomainDkim",
           "ses:GetIdentityVerificationAttributes",
+          "ses:CreateReceiptRule",
+          "ses:DeleteReceiptRule",
+          "ses:GetIdentityDkimAttributes",
+          "ses:DeleteIdentity",
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
           "s3:PutObject",
-          "s3:DeleteObject"
+          "s3:DeleteObject",  
         ],
         Resource = "*"
       },
