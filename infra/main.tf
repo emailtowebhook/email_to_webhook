@@ -143,9 +143,10 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
           "s3:DeleteObject"
         ]
           Resource = [
-            "arn:aws:s3:::${var.database_bucket_name}",
-            "arn:aws:s3:::${var.database_bucket_name}/*",
-            "arn:aws:s3:::${var.attachments_bucket_name}/*"
+            "${aws_s3_bucket.kv_database_bucket.arn}",
+            "${aws_s3_bucket.kv_database_bucket.arn}/*",
+            "${aws_s3_bucket.attachments_bucket.arn}",
+            "${aws_s3_bucket.attachments_bucket.arn}/*"
           ]
       },
       # CloudWatch Logs Permissions
@@ -234,7 +235,7 @@ resource "aws_lambda_function" "verify_domain_lambda" {
 
   environment {
     variables = {
-      DATABASE_BUCKET_NAME = var.database_bucket_name
+      DATABASE_BUCKET_NAME = aws_s3_bucket.kv_database_bucket.id
       MONGODB_URI = var.mongodb_uri
       ENVIRONMENT = var.environment
       CODE_VERSION = local.verify_lambda_hash
@@ -410,9 +411,9 @@ resource "aws_lambda_function" "parsing_lambda" {
 
   environment {
     variables = {
-      DATABASE_BUCKET_NAME = var.database_bucket_name
+      DATABASE_BUCKET_NAME = aws_s3_bucket.kv_database_bucket.id
       EMAILS_BUCKET_NAME = aws_s3_bucket.emails_bucket.id
-      ATTACHMENTS_BUCKET_NAME = var.attachments_bucket_name
+      ATTACHMENTS_BUCKET_NAME = aws_s3_bucket.attachments_bucket.id
       MONGODB_URI = var.mongodb_uri
       ENVIRONMENT = var.environment
       # Add a marker to track deployments - only changes when code actually changes
@@ -463,9 +464,10 @@ resource "aws_iam_role_policy" "lambda_ses_smtp_policy" {
           "s3:DeleteObject"
         ]
         Resource = [
-          "arn:aws:s3:::${var.database_bucket_name}",
-          "arn:aws:s3:::${var.database_bucket_name}/*",
-          "arn:aws:s3:::${var.attachments_bucket_name}/*"
+          "${aws_s3_bucket.kv_database_bucket.arn}",
+          "${aws_s3_bucket.kv_database_bucket.arn}/*",
+          "${aws_s3_bucket.attachments_bucket.arn}",
+          "${aws_s3_bucket.attachments_bucket.arn}/*"
         ]
       },
       # CloudWatch Logs Permissions
