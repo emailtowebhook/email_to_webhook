@@ -662,7 +662,9 @@ def lambda_handler(event, context):
                                     }
                                 },
                                 {
-                                    'StopAction': {}
+                                    'StopAction': {
+                                        'Scope': 'RuleSet'
+                                    }
                                 }
                             ],
                             'ScanEnabled': True
