@@ -658,7 +658,7 @@ def lambda_handler(event, context):
                                 {
                                     'S3Action': {
                                         'BucketName': s3_bucket,
-                                        'ObjectKeyPrefix': f"{environment}/"
+                                        #'ObjectKeyPrefix': f"{environment}/"
                                     }
                                 },
                                 {

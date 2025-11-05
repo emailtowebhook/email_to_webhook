@@ -237,7 +237,7 @@ resource "aws_apigatewayv2_integration" "lambda_integration" {
 # API Gateway Stage (per environment/branch)
 resource "aws_apigatewayv2_stage" "env_stage" {
   api_id      = aws_apigatewayv2_api.lambda_api.id
-  name        = var.environment
+  name        = "prod"
   auto_deploy = true
 }
 
@@ -284,7 +284,7 @@ resource "aws_lambda_permission" "verify_api_gateway_permission" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.verify_domain_lambda.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.lambda_api.execution_arn}/${var.environment}/*"
+  source_arn    = "${aws_apigatewayv2_api.lambda_api.execution_arn}/prod/*"
 }
 
 resource "aws_s3_bucket" "kv_database_bucket" {
@@ -491,7 +491,7 @@ resource "aws_s3_bucket_notification" "bucket_notification" {
   lambda_function {
     lambda_function_arn = aws_lambda_function.parsing_lambda.arn
     events              = ["s3:ObjectCreated:*"]
-    filter_prefix       = "${var.environment}/" # Only trigger for this environment's emails
+    //filter_prefix       = "${var.environment}/" # Only trigger for this environment's emails
   }
 
   depends_on = [aws_lambda_permission.allow_s3_to_invoke]
