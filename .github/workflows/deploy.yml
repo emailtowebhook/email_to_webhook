@@ -2,9 +2,9 @@ name: Deploy Infrastructure
 
 on:
   push:
-    branches: ["**"]
+    branches: ["main", "preview", "dev"]
   pull_request:
-    branches: ["**"]
+    branches: ["main", "preview", "dev"]
   workflow_dispatch:
 
 jobs:
@@ -15,29 +15,75 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up AWS credentials
+      - name: Determine environment from branch
+        id: determine-env
+        run: |
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          
+          # Map branch to environment (can be customized)
+          case "$BRANCH_NAME" in
+            main)
+              echo "environment=main" >> $GITHUB_OUTPUT
+              ;;
+            preview)
+              echo "environment=preview" >> $GITHUB_OUTPUT
+              ;;
+            dev)
+              echo "environment=dev" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "environment=dev" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Set AWS credentials for environment
+        id: aws-creds
+        run: |
+          ENV="${{ steps.determine-env.outputs.environment }}"
+          
+          case "$ENV" in
+            main)
+              echo "aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID_MAIN }}" >> $GITHUB_OUTPUT
+              echo "aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY_MAIN }}" >> $GITHUB_OUTPUT
+              echo "aws_account_id=${{ secrets.AWS_ACCOUNT_ID_MAIN }}" >> $GITHUB_OUTPUT
+              echo "aws_region=${{ secrets.AWS_REGION_MAIN || 'us-east-1' }}" >> $GITHUB_OUTPUT
+              ;;
+            preview)
+              echo "aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID_PREVIEW }}" >> $GITHUB_OUTPUT
+              echo "aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY_PREVIEW }}" >> $GITHUB_OUTPUT
+              echo "aws_account_id=${{ secrets.AWS_ACCOUNT_ID_PREVIEW }}" >> $GITHUB_OUTPUT
+              echo "aws_region=${{ secrets.AWS_REGION_PREVIEW || 'us-east-1' }}" >> $GITHUB_OUTPUT
+              ;;
+            dev)
+              echo "aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID_DEV }}" >> $GITHUB_OUTPUT
+              echo "aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}" >> $GITHUB_OUTPUT
+              echo "aws_account_id=${{ secrets.AWS_ACCOUNT_ID_DEV }}" >> $GITHUB_OUTPUT
+              echo "aws_region=${{ secrets.AWS_REGION_DEV || 'us-east-1' }}" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "::error::Unknown environment: $ENV"
+              exit 1
+              ;;
+          esac
+
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: "us-east-1"
+          aws-access-key-id: ${{ steps.aws-creds.outputs.aws_access_key_id }}
+          aws-secret-access-key: ${{ steps.aws-creds.outputs.aws_secret_access_key }}
+          aws-region: ${{ steps.aws-creds.outputs.aws_region }}
+
+      - name: Verify AWS credentials
+        run: |
+          echo "Verifying AWS credentials..."
+          aws sts get-caller-identity
+          echo "Account ID: ${{ steps.aws-creds.outputs.aws_account_id }}"
+          echo "Region: ${{ steps.aws-creds.outputs.aws_region }}"
+          echo "Environment: ${{ steps.determine-env.outputs.environment }}"
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v2
-
-      - name: Extract branch name
-        shell: bash
-        run: echo "BRANCH_NAME=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
-
-      - name: Check for shared infrastructure
-        run: |
-          if ! aws s3 ls s3://email-to-webhook-emails-shared 2>/dev/null; then
-            echo "⚠️ WARNING: Shared infrastructure not found!"
-            echo "The shared SES infrastructure should be deployed first."
-            echo "Run the 'Deploy Shared Infrastructure' workflow manually."
-            exit 1
-          fi
-          echo "✅ Shared infrastructure found."
 
       - name: Package Check Lambda function
         run: |
@@ -49,16 +95,50 @@ jobs:
           cd lambda/parser && ./package.sh
 
       - name: Terraform Init
+        env:
+          ENV: ${{ steps.determine-env.outputs.environment }}
+          AWS_REGION: ${{ steps.aws-creds.outputs.aws_region }}
         run: |
           cd infra
+          STATE_BUCKET="terraform-state-${ENV}-${{ steps.aws-creds.outputs.aws_account_id }}"
+          echo "Initializing Terraform with state bucket: $STATE_BUCKET"
           terraform init -reconfigure \
-            -backend-config="key=terraform/${BRANCH_NAME}/state.tfstate"
+            -backend-config="bucket=$STATE_BUCKET" \
+            -backend-config="key=terraform.tfstate" \
+            -backend-config="region=$AWS_REGION"
+
+      - name: Terraform Plan
+        env:
+          ENV: ${{ steps.determine-env.outputs.environment }}
+          AWS_ACCOUNT_ID: ${{ steps.aws-creds.outputs.aws_account_id }}
+          AWS_REGION: ${{ steps.aws-creds.outputs.aws_region }}
+        run: |
+          cd infra
+          STATE_BUCKET="terraform-state-${ENV}-${AWS_ACCOUNT_ID}"
+          terraform plan \
+            -var="environment=$ENV" \
+            -var="aws_account_id=$AWS_ACCOUNT_ID" \
+            -var="aws_region=$AWS_REGION" \
+            -var="state_bucket_name=$STATE_BUCKET" \
+            -var="mongodb_uri=${{ secrets.MONGODB_URI }}"
 
       - name: Terraform Apply
+        if: github.event_name == 'push'
+        env:
+          ENV: ${{ steps.determine-env.outputs.environment }}
+          AWS_ACCOUNT_ID: ${{ steps.aws-creds.outputs.aws_account_id }}
+          AWS_REGION: ${{ steps.aws-creds.outputs.aws_region }}
         run: |
           cd infra
-          terraform apply -var="aws_account_id=${{ secrets.AWS_ACCOUNT_ID }}" -var="mongodb_uri=${{ secrets.MONGODB_URI }}" -var="environment=${BRANCH_NAME}" -auto-approve
+          STATE_BUCKET="terraform-state-${ENV}-${AWS_ACCOUNT_ID}"
+          terraform apply -auto-approve \
+            -var="environment=$ENV" \
+            -var="aws_account_id=$AWS_ACCOUNT_ID" \
+            -var="aws_region=$AWS_REGION" \
+            -var="state_bucket_name=$STATE_BUCKET" \
+            -var="mongodb_uri=${{ secrets.MONGODB_URI }}"
 
       - name: Clean up Lambda packages
+        if: always()
         run: |
           rm -rf lambda_packages

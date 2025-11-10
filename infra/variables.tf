@@ -1,10 +1,11 @@
 variable "aws_region" {
-  default = "us-east-1"
-  type = string
+  description = "AWS region where resources will be deployed"
+  default     = "us-east-1"
+  type        = string
 }
 
 variable "aws_account_id" {
-  description = "The AWS account ID"
+  description = "The AWS account ID for the target environment (required, no default)"
   type        = string
 }
 
@@ -43,9 +44,15 @@ variable "mongodb_uri" {
 }
 
 variable "environment" {
-  description = "Environment name (branch name) to namespace resources"
+  description = "Environment name (main, preview, dev, etc.) - each environment deploys to its own AWS account"
   default     = "main"
   type        = string
+}
+
+variable "state_bucket_name" {
+  description = "S3 bucket name for Terraform state storage in the target AWS account"
+  type        = string
+  default     = ""
 }
 
 

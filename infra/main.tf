@@ -1,6 +1,51 @@
-# Reference the shared email bucket (managed in infra/shared/)
-data "aws_s3_bucket" "emails_bucket" {
-  bucket = "email-to-webhook-emails-shared"
+# SES Receipt Rule Set (per environment in multi-account setup)
+# Each AWS account gets its own rule set
+resource "aws_ses_receipt_rule_set" "env_rule_set" {
+  rule_set_name = "${var.environment}-rule-set"
+}
+
+# Activate the Rule Set (only one can be active per AWS account)
+resource "aws_ses_active_receipt_rule_set" "activate_rule_set" {
+  rule_set_name = aws_ses_receipt_rule_set.env_rule_set.rule_set_name
+}
+
+# Create per-environment email bucket for SES to store incoming emails
+resource "aws_s3_bucket" "emails_bucket" {
+  bucket        = "email-to-webhook-emails-${var.environment}"
+  force_destroy = true
+}
+
+# S3 Bucket Policy to Allow SES Write Access
+resource "aws_s3_bucket_policy" "email_storage_policy" {
+  bucket = aws_s3_bucket.emails_bucket.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "ses.amazonaws.com"
+        },
+        Action   = "s3:PutObject",
+        Resource = "${aws_s3_bucket.emails_bucket.arn}/*"
+      },
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        },
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ],
+        Resource = [
+          "${aws_s3_bucket.emails_bucket.arn}",
+          "${aws_s3_bucket.emails_bucket.arn}/*"
+        ]
+      }
+    ]
+  })
 }
 
 # IAM Role for Lambda
@@ -91,7 +136,11 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents",
           "s3:PutObject",
-          "s3:DeleteObject"
+          "s3:DeleteObject",
+          "ses:DescribeReceiptRule",
+          "ses:UpdateReceiptRule",
+          "ses:CreateReceiptRule",
+          "ses:DeleteReceiptRule"
         ],
         Resource = "*"
       },
@@ -105,9 +154,10 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
           "s3:DeleteObject"
         ]
           Resource = [
-            "arn:aws:s3:::${var.database_bucket_name}",
-            "arn:aws:s3:::${var.database_bucket_name}/*",
-            "arn:aws:s3:::${var.attachments_bucket_name}/*"
+            "${aws_s3_bucket.kv_database_bucket.arn}",
+            "${aws_s3_bucket.kv_database_bucket.arn}/*",
+            "${aws_s3_bucket.attachments_bucket.arn}",
+            "${aws_s3_bucket.attachments_bucket.arn}/*"
           ]
       },
       # CloudWatch Logs Permissions
@@ -196,10 +246,11 @@ resource "aws_lambda_function" "verify_domain_lambda" {
 
   environment {
     variables = {
-      DATABASE_BUCKET_NAME = var.database_bucket_name
+      DATABASE_BUCKET_NAME = aws_s3_bucket.kv_database_bucket.id
       MONGODB_URI = var.mongodb_uri
       ENVIRONMENT = var.environment
-      CODE_VERSION = local.verify_lambda_hash  
+      CODE_VERSION = local.verify_lambda_hash
+      RECEIPT_RULE_SET = aws_ses_receipt_rule_set.env_rule_set.rule_set_name
     }
   }
 
@@ -275,6 +326,20 @@ resource "aws_apigatewayv2_route" "update_domain_route" {
 resource "aws_apigatewayv2_route" "get_domain_route" {
   api_id    = aws_apigatewayv2_api.lambda_api.id
   route_key = "GET /v1/domain/{domain}"
+  target    = "integrations/${aws_apigatewayv2_integration.verify_lambda_integration.id}"
+}
+
+# API Gateway POST Route for syncing domains to SES receipt rule
+resource "aws_apigatewayv2_route" "sync_domains_route" {
+  api_id    = aws_apigatewayv2_api.lambda_api.id
+  route_key = "POST /v1/domains/sync"
+  target    = "integrations/${aws_apigatewayv2_integration.verify_lambda_integration.id}"
+}
+
+# API Gateway GET Route for debugging receipt rule state
+resource "aws_apigatewayv2_route" "debug_receipt_rule_route" {
+  api_id    = aws_apigatewayv2_api.lambda_api.id
+  route_key = "GET /v1/debug/receipt-rule"
   target    = "integrations/${aws_apigatewayv2_integration.verify_lambda_integration.id}"
 }
 
@@ -357,9 +422,9 @@ resource "aws_lambda_function" "parsing_lambda" {
 
   environment {
     variables = {
-      DATABASE_BUCKET_NAME = var.database_bucket_name
-      EMAILS_BUCKET_NAME = data.aws_s3_bucket.emails_bucket.id
-      ATTACHMENTS_BUCKET_NAME = var.attachments_bucket_name
+      DATABASE_BUCKET_NAME = aws_s3_bucket.kv_database_bucket.id
+      EMAILS_BUCKET_NAME = aws_s3_bucket.emails_bucket.id
+      ATTACHMENTS_BUCKET_NAME = aws_s3_bucket.attachments_bucket.id
       MONGODB_URI = var.mongodb_uri
       ENVIRONMENT = var.environment
       # Add a marker to track deployments - only changes when code actually changes
@@ -410,9 +475,10 @@ resource "aws_iam_role_policy" "lambda_ses_smtp_policy" {
           "s3:DeleteObject"
         ]
         Resource = [
-          "arn:aws:s3:::${var.database_bucket_name}",
-          "arn:aws:s3:::${var.database_bucket_name}/*",
-          "arn:aws:s3:::${var.attachments_bucket_name}/*"
+          "${aws_s3_bucket.kv_database_bucket.arn}",
+          "${aws_s3_bucket.kv_database_bucket.arn}/*",
+          "${aws_s3_bucket.attachments_bucket.arn}",
+          "${aws_s3_bucket.attachments_bucket.arn}/*"
         ]
       },
       # CloudWatch Logs Permissions
@@ -486,12 +552,11 @@ resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
 }
 
 resource "aws_s3_bucket_notification" "bucket_notification" {
-  bucket = data.aws_s3_bucket.emails_bucket.id
+  bucket = aws_s3_bucket.emails_bucket.id
 
   lambda_function {
     lambda_function_arn = aws_lambda_function.parsing_lambda.arn
     events              = ["s3:ObjectCreated:*"]
-    //filter_prefix       = "${var.environment}/" # Only trigger for this environment's emails
   }
 
   depends_on = [aws_lambda_permission.allow_s3_to_invoke]
@@ -502,7 +567,7 @@ resource "aws_lambda_permission" "allow_s3_to_invoke" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.parsing_lambda.function_name
   principal     = "s3.amazonaws.com"
-  source_arn    = data.aws_s3_bucket.emails_bucket.arn
+  source_arn    = aws_s3_bucket.emails_bucket.arn
 }
 
 # Add this new resource to attach S3 read permissions to the role
@@ -519,12 +584,37 @@ resource "aws_iam_role_policy" "lambda_s3_policy" {
         ],
         Effect   = "Allow",
         Resource = [
-          "${data.aws_s3_bucket.emails_bucket.arn}",
-          "${data.aws_s3_bucket.emails_bucket.arn}/*"
+          "${aws_s3_bucket.emails_bucket.arn}",
+          "${aws_s3_bucket.emails_bucket.arn}/*"
         ]
       }
     ]
   })
 }
 
- 
+# SES Receipt Rule - catch emails for this environment and store in per-environment S3 bucket
+# In multi-account setup, each environment has its own rule set
+resource "aws_ses_receipt_rule" "env_catch_rule" {
+  rule_set_name = aws_ses_receipt_rule_set.env_rule_set.rule_set_name
+  name          = "catch-emails-${var.environment}"
+  enabled       = true
+
+  # Match all recipients (empty list means all verified domains)
+  # This will be dynamically updated by the Lambda function when domains are registered
+  recipients = []
+
+  # Actions for the receipt rule
+  s3_action {
+    bucket_name = aws_s3_bucket.emails_bucket.id
+    position    = 1
+  }
+
+  # Enable email scanning for spam/viruses
+  scan_enabled = true
+
+  depends_on = [
+    aws_s3_bucket_policy.email_storage_policy,
+    aws_s3_bucket.emails_bucket,
+    aws_ses_active_receipt_rule_set.activate_rule_set
+  ]
+}

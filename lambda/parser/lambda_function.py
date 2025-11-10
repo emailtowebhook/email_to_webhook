@@ -88,6 +88,65 @@ def process_template(template, data):
     
     return pystache.render(template, data)
 
+def extract_email_body(msg):
+    """
+    Recursively extract body content from an email message.
+    Handles nested multipart structures and prefers the most complete parts.
+
+    Returns:
+        tuple: (body_text, html_body)
+    """
+    plain_candidates = []
+    html_candidates = []
+
+    def walk(part):
+        try:
+            if part.is_multipart():
+                for sub in part.iter_parts():
+                    walk(sub)
+                return
+
+            content_type = part.get_content_type()
+            content_disposition = str(part.get_content_disposition() or "").lower()
+
+            # Skip attachments
+            if "attachment" in content_disposition:
+                return
+
+            payload = part.get_payload(decode=True)
+            if not payload:
+                return
+
+            charset = part.get_content_charset() or "utf-8"
+            text = payload.decode(charset, errors="replace").strip()
+
+            if content_type == "text/plain":
+                plain_candidates.append(text)
+                print(f"Found text/plain candidate: {len(text)} chars")
+            elif content_type == "text/html":
+                html_candidates.append(text)
+                print(f"Found text/html candidate: {len(text)} chars")
+        except Exception as e:
+            print(f"Error walking part: {e}")
+
+    walk(msg)
+
+    body_text = ""
+    html_body = None
+
+    if plain_candidates:
+        # Choose the longest non-empty plain text candidate
+        body_text = max(plain_candidates, key=len)
+    if html_candidates:
+        # Choose the longest non-empty html candidate
+        html_body = max(html_candidates, key=len)
+
+    # Use HTML as fallback if no plain text
+    if not body_text and html_body:
+        body_text = html_body
+
+    return body_text, html_body
+
 def save_email_to_mongodb(email_data, webhook_url=None, webhook_response=None, webhook_status_code=None):
     """
     Save parsed email to MongoDB database if MONGODB_URI environment variable exists
@@ -192,13 +251,30 @@ def lambda_handler(event, context):
                 custom_headers[header] = msg[header]
                 
         body = ""
-        html_body = ""  # Store HTML version separately
+        html_body = None  # Store HTML version separately
         attachments = []
 
         print(f"Sender: {sender}")
         print(f"Recipient: {recipient}")
-       
+        print(f"Subject: {subject}")
         print(f"Webhook key: {kv_key}")
+        print(f"Email is multipart: {msg.is_multipart()}")
+        print(f"Email content type: {msg.get_content_type()}")
+        
+        # Debug: Print all parts structure for multipart emails
+        if msg.is_multipart():
+            print("=== Email Parts Structure ===")
+            for i, part in enumerate(msg.iter_parts()):
+                print(f"Part {i}:")
+                print(f"  Content-Type: {part.get_content_type()}")
+                print(f"  Content-Disposition: {part.get_content_disposition()}")
+                print(f"  Has Content-ID: {part.get('Content-ID') is not None}")
+                print(f"  Has filename: {part.get_filename()}")
+                payload = part.get_payload(decode=True)
+                print(f"  Payload length: {len(payload) if payload else 0} bytes")
+        else:
+            payload = msg.get_payload(decode=True)
+            print(f"Non-multipart payload length: {len(payload) if payload else 0} bytes")
         
         # Retrieve webhook URL from MongoDB
         webhook_url = None
@@ -242,69 +318,106 @@ def lambda_handler(event, context):
                 'body': "Webhook for domain not found or error occurred."
             }
 
-        # Extract email body and attachments
+        # Extract email body using dedicated function
+        print("=== Extracting Email Body ===")
+        body, html_body = extract_email_body(msg)
+        print(f"After extraction - body: '{body[:100]}...' (length: {len(body)})")
+        print(f"After extraction - html_body: {html_body[:100] if html_body else 'None'}... (length: {len(html_body) if html_body else 0})")
+        
+        # Extract attachments
+        print("=== Extracting Attachments ===")
         if msg.is_multipart():
             for part in msg.iter_parts():
                 content_type = part.get_content_type()
                 content_disposition = str(part.get_content_disposition() or "").lower()
-                is_inline = "inline" in content_disposition or part.get("Content-ID")
-
-                # Process text/plain body parts
-                if content_type == "text/plain" and not is_inline and "attachment" not in content_disposition:
-                    body = part.get_payload(decode=True).decode(part.get_content_charset() or "utf-8")
                 
-                # Process text/html body parts
-                elif content_type == "text/html" and not is_inline and "attachment" not in content_disposition:
-                    html_body = part.get_payload(decode=True).decode(part.get_content_charset() or "utf-8")
-                    if not body:  # Use HTML as fallback if plain text is unavailable
-                        body = html_body
+                # Check if this is truly an inline image/attachment
+                has_content_id = part.get("Content-ID") is not None
+                is_inline_image = has_content_id and content_type not in ("text/plain", "text/html")
+                is_attachment = "attachment" in content_disposition
+                has_filename = part.get_filename() is not None
                 
-                # Process attachments and inline content in a single block
-                elif "attachment" in content_disposition or is_inline:
-                    attachment_data = part.get_payload(decode=True)
-                    attachment_name = part.get_filename()
-                    content_id = part.get("Content-ID", "").strip('<>')
+                # Skip text parts (already processed for body)
+                if content_type in ("text/plain", "text/html") and not is_attachment:
+                    continue
 
-                    if is_inline and not attachment_name:
-                        attachment_name = f"inline_{content_id or uuid.uuid4().hex}.png"
+                # Process attachments and inline images
+                if is_attachment or is_inline_image or has_filename:
+                    try:
+                        attachment_data = part.get_payload(decode=True)
+                        if not attachment_data:
+                            continue
+                            
+                        attachment_name = part.get_filename()
+                        content_id = part.get("Content-ID", "").strip('<>')
 
-                    attachment_key = f"{uuid.uuid4().hex}/{attachment_name}"
-                    s3_client.put_object(
-                        Bucket=attachments_bucket_name,
-                        Key=attachment_key,
-                        Body=attachment_data,
-                        ContentType=content_type
-                    )
+                        if is_inline_image and not attachment_name:
+                            # Generate a name for inline images without filenames
+                            extension = content_type.split('/')[-1] if '/' in content_type else 'bin'
+                            attachment_name = f"inline_{content_id or uuid.uuid4().hex}.{extension}"
 
-                    s3_url = f"https://{attachments_bucket_name}.s3.amazonaws.com/{attachment_key}"
-                    print(f"Processed {'inline' if is_inline else 'attachment'}: {attachment_name}, URL: {s3_url}")
+                        if not attachment_name:
+                            attachment_name = f"attachment_{uuid.uuid4().hex}.bin"
 
-                    attachments.append({
-                        "filename": attachment_name,
-                        "public_url": s3_url,
-                        "content_type": content_type,
-                        "inline": is_inline,
-                        "content_id": content_id if is_inline else None
-                    })
+                        attachment_key = f"{uuid.uuid4().hex}/{attachment_name}"
+                        s3_client.put_object(
+                            Bucket=attachments_bucket_name,
+                            Key=attachment_key,
+                            Body=attachment_data,
+                            ContentType=content_type
+                        )
 
-            # Replace cid: references in the HTML body with the public URLs after processing all parts
+                        s3_url = f"https://{attachments_bucket_name}.s3.amazonaws.com/{attachment_key}"
+                        print(f"Processed {'inline image' if is_inline_image else 'attachment'}: {attachment_name}, URL: {s3_url}")
+
+                        attachments.append({
+                            "filename": attachment_name,
+                            "public_url": s3_url,
+                            "content_type": content_type,
+                            "inline": is_inline_image,
+                            "content_id": content_id if is_inline_image else None
+                        })
+                    except Exception as e:
+                        print(f"Error processing attachment: {e}")
+
+            # Replace cid: references in the HTML body with the public URLs
             if html_body:
                 for attachment in attachments:
                     if attachment.get("inline") and attachment.get("content_id"):
                         html_body = html_body.replace(f"cid:{attachment['content_id']}", attachment['public_url'])
-        else:
-            content_type = msg.get_content_type()
-            if content_type == "text/html":
-                html_body = msg.get_payload(decode=True).decode(msg.get_content_charset() or "utf-8")
-                body = html_body  # Use HTML as body if that's all we have
-            else:
-                body = msg.get_payload(decode=True).decode(msg.get_content_charset() or "utf-8")
+
+        # Log final body extraction results
+        print(f"Final body length: {len(body)} characters")
+        print(f"Final html_body length: {len(html_body) if html_body else 0} characters")
+        print(f"Number of attachments: {len(attachments)}")
 
         # Construct payload
+        print("=== Constructing Payload ===")
+        # Determine local_part and domain robustly
+        domain_part = None
+        local_part = None
+        try:
+            if received_from and '@' in received_from:
+                local_part, domain_part = received_from.split('@', 1)
+            else:
+                from email.utils import getaddresses
+                addresses = getaddresses([recipient]) if recipient else []
+                email_addr = addresses[0][1] if addresses else ''
+                if email_addr and '@' in email_addr:
+                    local_part, domain_part = email_addr.split('@', 1)
+                else:
+                    # Fallbacks
+                    domain_part = kv_key or ''
+                    local_part = ''
+        except Exception as e:
+            print(f"Error determining local/domain parts: {e}")
+            domain_part = kv_key or ''
+            local_part = ''
+
         parsed_email = {
             "email_id": email_object_key,
-            "domain": received_from.split('@')[1],
-            "local_part": received_from.split('@')[0],
+            "domain": domain_part,
+            "local_part": local_part,
             "sender": sender,
             "recipient": recipient,
             "subject": subject,
@@ -318,7 +431,7 @@ def lambda_handler(event, context):
             "importance": importance,
             "custom_headers": custom_headers,
             "body": body,
-            "html_body": html_body if html_body else None,  # Include HTML body if available
+            "html_body": html_body,  # Include HTML body if available (already None if empty)
             "attachments": attachments
         }
 

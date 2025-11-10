@@ -1,31 +1,29 @@
 #!/bin/bash
-# MIT License
-# Copyright (c) 2023 [Your Name or Organization]
-# See LICENSE file for details
+# Migration Script: Destroy Old Infrastructure
+# This script destroys infrastructure from the OLD shared state file location
+# Use this ONCE to clean up before deploying with the new multi-account setup
 
 set -e
 
-# Multi-Account Destroy Script
-# Each environment exists in its own AWS account
+echo "🔄 Migration Cleanup Script"
+echo "This will destroy infrastructure from the OLD state file location"
+echo ""
 
 # Get environment name from ENV variable or default to "main"
 ENVIRONMENT=${ENVIRONMENT:-main}
-echo "🌍 Destroying environment: $ENVIRONMENT"
+echo "🌍 Destroying old environment: $ENVIRONMENT"
 echo "🧹 Starting cleanup process..."
 echo ""
 
-# AWS Profile validation (required for multi-account setup)
+# AWS Profile validation
 if [ -z "$AWS_PROFILE" ]; then
   echo ""
   echo "❌ ERROR: AWS_PROFILE is not set!"
   echo ""
-  echo "In multi-account setup, you must specify which AWS account to destroy from."
-  echo "Set the AWS_PROFILE environment variable to target the correct account."
-  echo ""
   echo "Examples:"
-  echo "  AWS_PROFILE=main ENVIRONMENT=main ./destroy.sh"
-  echo "  AWS_PROFILE=preview ENVIRONMENT=preview ./destroy.sh"
-  echo "  AWS_PROFILE=dev ENVIRONMENT=dev ./destroy.sh"
+  echo "  AWS_PROFILE=main ENVIRONMENT=main ./destroy-old-infrastructure.sh"
+  echo "  AWS_PROFILE=preview ENVIRONMENT=preview ./destroy-old-infrastructure.sh"
+  echo "  AWS_PROFILE=dev ENVIRONMENT=dev ./destroy-old-infrastructure.sh"
   echo ""
   exit 1
 fi
@@ -34,7 +32,7 @@ echo "📋 Using AWS Profile: $AWS_PROFILE"
 
 # Check if AWS CLI is installed
 if ! command -v aws &> /dev/null; then
-    echo "❌ AWS CLI is not installed. Please install it before running this script."
+    echo "❌ AWS CLI is not installed."
     exit 1
 fi
 
@@ -56,14 +54,17 @@ echo "   Account ID: $AWS_ACCOUNT_ID"
 echo "   Region: $AWS_REGION"
 echo ""
 
-# State bucket configuration
-STATE_BUCKET="terraform-state-${ENVIRONMENT}-${AWS_ACCOUNT_ID}"
-echo "📦 Terraform state bucket: $STATE_BUCKET"
+# OLD state bucket configuration (before migration)
+OLD_STATE_BUCKET="terraform-tregfd"
+OLD_STATE_KEY="terraform/${ENVIRONMENT}/state.tfstate"
+echo "📦 OLD Terraform state location:"
+echo "   Bucket: $OLD_STATE_BUCKET"
+echo "   Key: $OLD_STATE_KEY"
 echo ""
 
 # Check if Terraform is installed
 if ! command -v terraform &> /dev/null; then
-    echo "❌ Terraform is not installed. Please install it before running this script."
+    echo "❌ Terraform is not installed."
     exit 1
 fi
 
@@ -90,12 +91,12 @@ echo ""
 # Change to the infrastructure directory
 cd infra
 
-# Initialize Terraform with account-specific backend
-echo "🔧 Initializing Terraform..."
+# Initialize Terraform with OLD state file location
+echo "🔧 Initializing Terraform with OLD state file location..."
 terraform init -reconfigure \
-  -backend-config="bucket=$STATE_BUCKET" \
-  -backend-config="key=terraform.tfstate" \
-  -backend-config="region=$AWS_REGION"
+  -backend-config="bucket=$OLD_STATE_BUCKET" \
+  -backend-config="key=$OLD_STATE_KEY" \
+  -backend-config="region=us-east-1"
 
 echo ""
 
@@ -134,8 +135,7 @@ echo ""
 terraform destroy -auto-approve \
   -var="environment=$ENVIRONMENT" \
   -var="aws_account_id=$AWS_ACCOUNT_ID" \
-  -var="aws_region=$AWS_REGION" \
-  -var="state_bucket_name=$STATE_BUCKET"
+  -var="aws_region=$AWS_REGION"
 
 echo ""
 echo "🧹 Cleaning up placeholder files..."
@@ -143,5 +143,15 @@ cd ..
 rm -rf lambda_packages
 
 echo ""
-echo "✅ Cleanup complete! All resources have been destroyed."
-echo "🎉 Environment '$ENVIRONMENT' has been removed from AWS account $AWS_ACCOUNT_ID"
+echo "✅ Old infrastructure cleanup complete!"
+echo ""
+echo "📌 Next Steps:"
+echo "   1. Create the new state bucket:"
+echo "      aws s3 mb s3://terraform-state-${ENVIRONMENT}-${AWS_ACCOUNT_ID} --region $AWS_REGION --profile $AWS_PROFILE"
+echo "      aws s3api put-bucket-versioning --bucket terraform-state-${ENVIRONMENT}-${AWS_ACCOUNT_ID} \\"
+echo "        --versioning-configuration Status=Enabled --profile $AWS_PROFILE"
+echo ""
+echo "   2. Deploy with new multi-account setup:"
+echo "      AWS_PROFILE=$AWS_PROFILE ENVIRONMENT=$ENVIRONMENT ./deploy.sh"
+echo ""
+
