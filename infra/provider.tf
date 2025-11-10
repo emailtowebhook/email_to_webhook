@@ -3,7 +3,7 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Environment = "production"
+      Environment = var.environment
       Project     = "email-to-webhook"
       ManagedBy   = "terraform"
     }
@@ -12,11 +12,15 @@ provider "aws" {
 
 terraform {
   backend "s3" {
-    bucket         = "terraform-tregfd"
-    # key is set dynamically during terraform init based on environment
-    # key = "terraform/${environment}/state.tfstate"
-    region         = "us-east-1"
-    encrypt        = true
+    # Backend configuration is set dynamically during terraform init
+    # Use -backend-config flags to specify:
+    #   - bucket: The S3 bucket in the target AWS account
+    #   - key: The state file path (e.g., "terraform.tfstate" or "terraform/${environment}/state.tfstate")
+    #   - region: The AWS region where the state bucket exists
+    # Example: terraform init -backend-config="bucket=terraform-state-main" \
+    #                         -backend-config="key=terraform.tfstate" \
+    #                         -backend-config="region=us-east-1"
+    encrypt = true
   }
 }
  
