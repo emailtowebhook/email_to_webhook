@@ -1,3 +1,14 @@
+# SES Receipt Rule Set (per environment in multi-account setup)
+# Each AWS account gets its own rule set
+resource "aws_ses_receipt_rule_set" "env_rule_set" {
+  rule_set_name = "${var.environment}-rule-set"
+}
+
+# Activate the Rule Set (only one can be active per AWS account)
+resource "aws_ses_active_receipt_rule_set" "activate_rule_set" {
+  rule_set_name = aws_ses_receipt_rule_set.env_rule_set.rule_set_name
+}
+
 # Create per-environment email bucket for SES to store incoming emails
 resource "aws_s3_bucket" "emails_bucket" {
   bucket        = "email-to-webhook-emails-${var.environment}"
@@ -239,7 +250,7 @@ resource "aws_lambda_function" "verify_domain_lambda" {
       MONGODB_URI = var.mongodb_uri
       ENVIRONMENT = var.environment
       CODE_VERSION = local.verify_lambda_hash
-      RECEIPT_RULE_SET = "default-rule-set"  # Reference to shared rule set
+      RECEIPT_RULE_SET = aws_ses_receipt_rule_set.env_rule_set.rule_set_name
     }
   }
 
@@ -582,16 +593,11 @@ resource "aws_iam_role_policy" "lambda_s3_policy" {
 }
 
 # SES Receipt Rule - catch emails for this environment and store in per-environment S3 bucket
-# Note: The rule set "default-rule-set" must exist (created in infra/shared/)
+# In multi-account setup, each environment has its own rule set
 resource "aws_ses_receipt_rule" "env_catch_rule" {
-  rule_set_name = "default-rule-set"  # Reference to shared rule set
+  rule_set_name = aws_ses_receipt_rule_set.env_rule_set.rule_set_name
   name          = "catch-emails-${var.environment}"
   enabled       = true
-  
-  # Note: Rule positioning is handled by the order of rule creation
-  # Rules are evaluated in the order they appear in the rule set
-  # Each environment's rule filters by domain recipients
-  # This ensures proper isolation without requiring specific rule order
 
   # Match all recipients (empty list means all verified domains)
   # This will be dynamically updated by the Lambda function when domains are registered
@@ -606,10 +612,9 @@ resource "aws_ses_receipt_rule" "env_catch_rule" {
   # Enable email scanning for spam/viruses
   scan_enabled = true
 
-  depends_on = [aws_s3_bucket_policy.email_storage_policy, aws_s3_bucket.emails_bucket]
-  
-  # Lifecycle rule to prevent positioning conflicts
-  lifecycle {
-    ignore_changes = [after]
-  }
+  depends_on = [
+    aws_s3_bucket_policy.email_storage_policy,
+    aws_s3_bucket.emails_bucket,
+    aws_ses_active_receipt_rule_set.activate_rule_set
+  ]
 }

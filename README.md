@@ -16,44 +16,73 @@ A hosted version of this service is available at [emailtowebhook.com](https://em
 
 ## Deployment
 
-### Two-Tier Infrastructure
+### Multi-Account Architecture
 
-This project uses a **shared + per-environment model** to handle AWS SES limitations:
+This project uses a **multi-account architecture** where each environment deploys to its own isolated AWS account:
 
-1. **Shared Infrastructure** (deploy once):
-   - SES receipt rules (account-level, shared by all environments)
-   - Shared email S3 bucket
-2. **Per-Environment Infrastructure** (deploy per branch/environment):
-   - Lambda functions
-   - API Gateway endpoints
-   - IAM roles and policies
+- **main**: Production environment (dedicated AWS account)
+- **preview**: Staging environment (dedicated AWS account)
+- **dev**: Development environment (dedicated AWS account)
+
+**Benefits:**
+- Complete resource isolation between environments
+- Enhanced security with account-level boundaries
+- Independent cost tracking per environment
+- No shared infrastructure dependencies
+
+**Prerequisites:**
+1. Three separate AWS accounts (or one account for testing)
+2. AWS CLI configured with profiles for each account
+3. Terraform installed
+4. S3 bucket for Terraform state in each account
 
 **Quick Start:**
 
 ```bash
-# Step 1: Deploy shared infrastructure (one-time)
-./deploy-shared.sh
+# Deploy to main environment
+AWS_PROFILE=main ENVIRONMENT=main ./deploy.sh
 
-# Step 2: Deploy your first environment
-./deploy.sh
+# Deploy to preview environment
+AWS_PROFILE=preview ENVIRONMENT=preview ./deploy.sh
 
-# Deploy to other environments
-ENVIRONMENT=preview ./deploy.sh
-ENVIRONMENT=dev ./deploy.sh
+# Deploy to dev environment
+AWS_PROFILE=dev ENVIRONMENT=dev ./deploy.sh
 ```
 
-📖 **See [ENVIRONMENTS.md](ENVIRONMENTS.md)** for complete multi-environment documentation.
+📖 **See [ENVIRONMENTS.md](ENVIRONMENTS.md)** for complete setup guide including:
+- AWS account creation
+- AWS CLI profile configuration
+- Terraform state bucket setup
+- IAM permissions required
+- GitHub Actions configuration
 
 ### GitHub Actions
 
 1. Fork/clone this repository
-2. Set repository secrets (the first three are required, the last is optional):
-   - `AWS_ACCESS_KEY_ID`: (required) Your AWS access key
-   - `AWS_SECRET_ACCESS_KEY`: (required) Your AWS secret key
-   - `AWS_ACCOUNT_ID`: (required) Your AWS account ID
-   - `DB_CONNECTION_STRING`: (optional) Only needed if you use an external database to save email. Not required for standard deployments.
+2. Set repository secrets for each environment:
 
-Deployment runs automatically on pushes to main branch or can be triggered manually from Actions tab. Each branch gets its own isolated environment.
+**Main Environment (Production):**
+   - `AWS_ACCESS_KEY_ID_MAIN`: AWS access key for main account
+   - `AWS_SECRET_ACCESS_KEY_MAIN`: AWS secret key for main account
+   - `AWS_ACCOUNT_ID_MAIN`: Main AWS account ID
+   - `AWS_REGION_MAIN`: AWS region (e.g., `us-east-1`)
+
+**Preview Environment (Staging):**
+   - `AWS_ACCESS_KEY_ID_PREVIEW`: AWS access key for preview account
+   - `AWS_SECRET_ACCESS_KEY_PREVIEW`: AWS secret key for preview account
+   - `AWS_ACCOUNT_ID_PREVIEW`: Preview AWS account ID
+   - `AWS_REGION_PREVIEW`: AWS region (e.g., `us-east-1`)
+
+**Dev Environment:**
+   - `AWS_ACCESS_KEY_ID_DEV`: AWS access key for dev account
+   - `AWS_SECRET_ACCESS_KEY_DEV`: AWS secret key for dev account
+   - `AWS_ACCOUNT_ID_DEV`: Dev AWS account ID
+   - `AWS_REGION_DEV`: AWS region (e.g., `us-east-1`)
+
+**Shared Secrets:**
+   - `MONGODB_URI`: (optional) MongoDB connection string if using external database
+
+Deployment runs automatically on pushes to `main`, `preview`, or `dev` branches. Each branch deploys to its dedicated AWS account.
 
 ## Using the API
 
