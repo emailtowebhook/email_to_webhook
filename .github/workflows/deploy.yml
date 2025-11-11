@@ -20,7 +20,7 @@ jobs:
         run: |
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
-          
+
           # Map branch to environment (can be customized)
           case "$BRANCH_NAME" in
             main)
@@ -41,7 +41,7 @@ jobs:
         id: aws-creds
         run: |
           ENV="${{ steps.determine-env.outputs.environment }}"
-          
+
           case "$ENV" in
             main)
               echo "aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID_MAIN }}" >> $GITHUB_OUTPUT
@@ -123,7 +123,7 @@ jobs:
             -var="mongodb_uri=${{ secrets.MONGODB_URI }}"
 
       - name: Terraform Apply
-        if: github.event_name == 'push'
+        if: always()
         env:
           ENV: ${{ steps.determine-env.outputs.environment }}
           AWS_ACCOUNT_ID: ${{ steps.aws-creds.outputs.aws_account_id }}
