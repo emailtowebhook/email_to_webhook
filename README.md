@@ -25,14 +25,12 @@ This project uses a **multi-account architecture** where each environment deploy
 - **dev**: Development environment (dedicated AWS account)
 
 **Benefits:**
-
 - Complete resource isolation between environments
 - Enhanced security with account-level boundaries
 - Independent cost tracking per environment
 - No shared infrastructure dependencies
 
 **Prerequisites:**
-
 1. Three separate AWS accounts (or one account for testing)
 2. AWS CLI configured with profiles for each account
 3. Terraform installed
@@ -52,7 +50,6 @@ AWS_PROFILE=dev ENVIRONMENT=dev ./deploy.sh
 ```
 
 📖 **See [ENVIRONMENTS.md](ENVIRONMENTS.md)** for complete setup guide including:
-
 - AWS account creation
 - AWS CLI profile configuration
 - Terraform state bucket setup
@@ -65,29 +62,25 @@ AWS_PROFILE=dev ENVIRONMENT=dev ./deploy.sh
 2. Set repository secrets for each environment:
 
 **Main Environment (Production):**
-
-- `AWS_ACCESS_KEY_ID_MAIN`: AWS access key for main account
-- `AWS_SECRET_ACCESS_KEY_MAIN`: AWS secret key for main account
-- `AWS_ACCOUNT_ID_MAIN`: Main AWS account ID
-- `AWS_REGION_MAIN`: AWS region (e.g., `us-east-1`)
+   - `AWS_ACCESS_KEY_ID_MAIN`: AWS access key for main account
+   - `AWS_SECRET_ACCESS_KEY_MAIN`: AWS secret key for main account
+   - `AWS_ACCOUNT_ID_MAIN`: Main AWS account ID
+   - `AWS_REGION_MAIN`: AWS region (e.g., `us-east-1`)
 
 **Preview Environment (Staging):**
-
-- `AWS_ACCESS_KEY_ID_PREVIEW`: AWS access key for preview account
-- `AWS_SECRET_ACCESS_KEY_PREVIEW`: AWS secret key for preview account
-- `AWS_ACCOUNT_ID_PREVIEW`: Preview AWS account ID
-- `AWS_REGION_PREVIEW`: AWS region (e.g., `us-east-1`)
+   - `AWS_ACCESS_KEY_ID_PREVIEW`: AWS access key for preview account
+   - `AWS_SECRET_ACCESS_KEY_PREVIEW`: AWS secret key for preview account
+   - `AWS_ACCOUNT_ID_PREVIEW`: Preview AWS account ID
+   - `AWS_REGION_PREVIEW`: AWS region (e.g., `us-east-1`)
 
 **Dev Environment:**
-
-- `AWS_ACCESS_KEY_ID_DEV`: AWS access key for dev account
-- `AWS_SECRET_ACCESS_KEY_DEV`: AWS secret key for dev account
-- `AWS_ACCOUNT_ID_DEV`: Dev AWS account ID
-- `AWS_REGION_DEV`: AWS region (e.g., `us-east-1`)
+   - `AWS_ACCESS_KEY_ID_DEV`: AWS access key for dev account
+   - `AWS_SECRET_ACCESS_KEY_DEV`: AWS secret key for dev account
+   - `AWS_ACCOUNT_ID_DEV`: Dev AWS account ID
+   - `AWS_REGION_DEV`: AWS region (e.g., `us-east-1`)
 
 **Shared Secrets:**
-
-- `MONGODB_URI`: (optional) MongoDB connection string if using external database
+   - `MONGODB_URI`: (optional) MongoDB connection string if using external database
 
 Deployment runs automatically on pushes to `main`, `preview`, or `dev` branches. Each branch deploys to its dedicated AWS account.
 

@@ -11,8 +11,22 @@ resource "aws_ses_active_receipt_rule_set" "activate_rule_set" {
 
 # Create per-environment email bucket for SES to store incoming emails
 resource "aws_s3_bucket" "emails_bucket" {
-  bucket        = "email-to-webhook-emails-${var.environment}"
+  bucket        = "email-to-webhook-emails-${var.environment}-${var.aws_account_id}"
   force_destroy = true
+}
+
+# Lifecycle policy to expire emails after 14 days
+resource "aws_s3_bucket_lifecycle_configuration" "emails_bucket_lifecycle" {
+  bucket = aws_s3_bucket.emails_bucket.id
+
+  rule {
+    id     = "expire-emails-after-14-days"
+    status = "Enabled"
+
+    expiration {
+      days = 14
+    }
+  }
 }
 
 # S3 Bucket Policy to Allow SES Write Access
@@ -233,10 +247,18 @@ resource "aws_iam_role_policy_attachment" "verify_domain_lambda_role_attachment"
 # Lambda Function
 locals {
   verify_lambda_hash = filebase64sha256(var.verify_lambda_file_path)
+  verify_domain_lambda_name = "verify-domain-lambda-${var.environment}"
+}
+
+# CloudWatch Log Group for verify domain lambda
+resource "aws_cloudwatch_log_group" "verify_domain_lambda_logs" {
+  name              = "/aws/lambda/${local.verify_domain_lambda_name}"
+  retention_in_days = 14
 }
 
 resource "aws_lambda_function" "verify_domain_lambda" {
-  function_name = "verify-domain-lambda-${var.environment}"
+  depends_on = [aws_cloudwatch_log_group.verify_domain_lambda_logs]
+  function_name = local.verify_domain_lambda_name
   filename      = var.verify_lambda_file_path
   handler       = "lambda_function.lambda_handler"
   runtime       = "python3.12"
@@ -353,8 +375,22 @@ resource "aws_lambda_permission" "verify_api_gateway_permission" {
 }
 
 resource "aws_s3_bucket" "kv_database_bucket" {
-  bucket = "${var.database_bucket_name}-${var.environment}"
+  bucket = "${var.database_bucket_name}-${var.environment}-${var.aws_account_id}"
   force_destroy = true
+}
+
+# Lifecycle policy to expire database objects after 14 days
+resource "aws_s3_bucket_lifecycle_configuration" "kv_database_bucket_lifecycle" {
+  bucket = aws_s3_bucket.kv_database_bucket.id
+
+  rule {
+    id     = "expire-database-objects-after-14-days"
+    status = "Enabled"
+
+    expiration {
+      days = 14
+    }
+  }
 }
 
 resource "aws_s3_bucket_ownership_controls" "kv_database_bucket_ownership" {
@@ -371,8 +407,22 @@ resource "aws_s3_bucket_acl" "kv_database_bucket_acl" {
 }
 
 resource "aws_s3_bucket" "attachments_bucket" {
-  bucket = "${var.attachments_bucket_name}-${var.environment}"
+  bucket = "${var.attachments_bucket_name}-${var.environment}-${var.aws_account_id}"
   force_destroy = true
+}
+
+# Lifecycle policy to expire attachments after 14 days
+resource "aws_s3_bucket_lifecycle_configuration" "attachments_bucket_lifecycle" {
+  bucket = aws_s3_bucket.attachments_bucket.id
+
+  rule {
+    id     = "expire-attachments-after-14-days"
+    status = "Enabled"
+
+    expiration {
+      days = 14
+    }
+  }
 }
 
 # Configure public access block to allow public policies
@@ -407,10 +457,18 @@ resource "aws_s3_bucket_policy" "public_access_policy" {
 locals {
   # Calculate hash once to ensure consistency and avoid unnecessary Lambda redeployments
   parser_lambda_hash = filebase64sha256(var.parser_lambda_file_path)
+  parsing_lambda_name = "email-parser-lambda-${var.environment}"
+}
+
+# CloudWatch Log Group for parsing lambda
+resource "aws_cloudwatch_log_group" "parsing_lambda_logs" {
+  name              = "/aws/lambda/${local.parsing_lambda_name}"
+  retention_in_days = 14
 }
 
 resource "aws_lambda_function" "parsing_lambda" {
-  function_name = "email-parser-lambda-${var.environment}"
+  depends_on = [aws_cloudwatch_log_group.parsing_lambda_logs]
+  function_name = local.parsing_lambda_name
   role          = aws_iam_role.lambda_exec.arn
   handler       = "lambda_function.lambda_handler"
   runtime       = "python3.12"

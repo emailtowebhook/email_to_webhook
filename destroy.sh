@@ -100,9 +100,9 @@ terraform init -reconfigure \
 echo ""
 
 # Get bucket names from Terraform configuration
-PARSER_BUCKET="email-to-webhook-kv-database-${ENVIRONMENT}"
-ATTACHMENTS_BUCKET="email-to-webhook-attachments-${ENVIRONMENT}"
-EMAIL_BUCKET="email-to-webhook-emails-${ENVIRONMENT}"
+PARSER_BUCKET="email-to-webhook-kv-database-${ENVIRONMENT}-${AWS_ACCOUNT_ID}"
+ATTACHMENTS_BUCKET="email-to-webhook-attachments-${ENVIRONMENT}-${AWS_ACCOUNT_ID}"
+EMAIL_BUCKET="email-to-webhook-emails-${ENVIRONMENT}-${AWS_ACCOUNT_ID}"
 
 # Function to empty an S3 bucket safely
 empty_bucket() {
