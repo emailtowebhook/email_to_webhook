@@ -100,7 +100,7 @@ terraform init -reconfigure \
 
 echo ""
 
-# Get bucket names from Terraform configuration
+# Get bucket names from Terraform configuration (OLD naming without account ID)
 PARSER_BUCKET="email-to-webhook-kv-database-${ENVIRONMENT}"
 ATTACHMENTS_BUCKET="email-to-webhook-attachments-${ENVIRONMENT}"
 EMAIL_BUCKET="email-to-webhook-emails-${ENVIRONMENT}"
