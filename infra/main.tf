@@ -351,20 +351,6 @@ resource "aws_apigatewayv2_route" "get_domain_route" {
   target    = "integrations/${aws_apigatewayv2_integration.verify_lambda_integration.id}"
 }
 
-# API Gateway POST Route for syncing domains to SES receipt rule
-resource "aws_apigatewayv2_route" "sync_domains_route" {
-  api_id    = aws_apigatewayv2_api.lambda_api.id
-  route_key = "POST /v1/domains/sync"
-  target    = "integrations/${aws_apigatewayv2_integration.verify_lambda_integration.id}"
-}
-
-# API Gateway GET Route for debugging receipt rule state
-resource "aws_apigatewayv2_route" "debug_receipt_rule_route" {
-  api_id    = aws_apigatewayv2_api.lambda_api.id
-  route_key = "GET /v1/debug/receipt-rule"
-  target    = "integrations/${aws_apigatewayv2_integration.verify_lambda_integration.id}"
-}
-
 # Lambda Permission for API Gateway
 resource "aws_lambda_permission" "verify_api_gateway_permission" {
   statement_id  = "AllowAPIGatewayInvoke-${var.environment}"
@@ -658,7 +644,7 @@ resource "aws_ses_receipt_rule" "env_catch_rule" {
   enabled       = true
 
   # Match all recipients (empty list means all verified domains)
-  # This will be dynamically updated by the Lambda function when domains are registered
+  # Catch-all rule automatically routes emails to all verified domains
   recipients = []
 
   # Actions for the receipt rule
