@@ -23,7 +23,9 @@ resource "aws_s3_bucket_lifecycle_configuration" "emails_bucket_lifecycle" {
     id     = "expire-emails-after-14-days"
     status = "Enabled"
 
-    filter {}
+    filter {
+      prefix = ""
+    }
 
     expiration {
       days = 14
@@ -372,7 +374,9 @@ resource "aws_s3_bucket_lifecycle_configuration" "attachments_bucket_lifecycle" 
     id     = "expire-attachments-after-14-days"
     status = "Enabled"
 
-    filter {}
+    filter {
+      prefix = ""
+    }
 
     expiration {
       days = 14
