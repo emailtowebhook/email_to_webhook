@@ -22,12 +22,6 @@ variable "parser_lambda_file_path" {
   type = string
 }
 
-variable "database_bucket_name" {
-  description = "The name of the S3 bucket for email webhooks, act as KV store (deprecated, kept for backward compatibility)"
-  default     = "email-to-webhook-kv-database"
-  type        = string
-}
-
 # Note: email_bucket_name is now managed in infra/shared/ as a shared resource
 
 variable "attachments_bucket_name" {

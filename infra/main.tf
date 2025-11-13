@@ -23,6 +23,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "emails_bucket_lifecycle" {
     id     = "expire-emails-after-14-days"
     status = "Enabled"
 
+    filter {
+      prefix = ""
+    }
+
     expiration {
       days = 14
     }
@@ -168,8 +172,6 @@ resource "aws_iam_policy" "verify_domain_lambda_policy" {
           "s3:DeleteObject"
         ]
           Resource = [
-            "${aws_s3_bucket.kv_database_bucket.arn}",
-            "${aws_s3_bucket.kv_database_bucket.arn}/*",
             "${aws_s3_bucket.attachments_bucket.arn}",
             "${aws_s3_bucket.attachments_bucket.arn}/*"
           ]
@@ -268,7 +270,6 @@ resource "aws_lambda_function" "verify_domain_lambda" {
 
   environment {
     variables = {
-      DATABASE_BUCKET_NAME = aws_s3_bucket.kv_database_bucket.id
       MONGODB_URI = var.mongodb_uri
       ENVIRONMENT = var.environment
       CODE_VERSION = local.verify_lambda_hash
@@ -360,38 +361,6 @@ resource "aws_lambda_permission" "verify_api_gateway_permission" {
   source_arn    = "${aws_apigatewayv2_api.lambda_api.execution_arn}/prod/*"
 }
 
-resource "aws_s3_bucket" "kv_database_bucket" {
-  bucket = "${var.database_bucket_name}-${var.environment}-${var.aws_account_id}"
-  force_destroy = true
-}
-
-# Lifecycle policy to expire database objects after 14 days
-resource "aws_s3_bucket_lifecycle_configuration" "kv_database_bucket_lifecycle" {
-  bucket = aws_s3_bucket.kv_database_bucket.id
-
-  rule {
-    id     = "expire-database-objects-after-14-days"
-    status = "Enabled"
-
-    expiration {
-      days = 14
-    }
-  }
-}
-
-resource "aws_s3_bucket_ownership_controls" "kv_database_bucket_ownership" {
-  bucket = aws_s3_bucket.kv_database_bucket.id
-  rule {
-    object_ownership = "BucketOwnerPreferred"
-  }
-}
-
-resource "aws_s3_bucket_acl" "kv_database_bucket_acl" {
-  depends_on = [aws_s3_bucket_ownership_controls.kv_database_bucket_ownership]
-  bucket = aws_s3_bucket.kv_database_bucket.id
-  acl    = "private"
-}
-
 resource "aws_s3_bucket" "attachments_bucket" {
   bucket = "${var.attachments_bucket_name}-${var.environment}-${var.aws_account_id}"
   force_destroy = true
@@ -404,6 +373,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "attachments_bucket_lifecycle" 
   rule {
     id     = "expire-attachments-after-14-days"
     status = "Enabled"
+
+    filter {
+      prefix = ""
+    }
 
     expiration {
       days = 14
@@ -466,7 +439,6 @@ resource "aws_lambda_function" "parsing_lambda" {
 
   environment {
     variables = {
-      DATABASE_BUCKET_NAME = aws_s3_bucket.kv_database_bucket.id
       EMAILS_BUCKET_NAME = aws_s3_bucket.emails_bucket.id
       ATTACHMENTS_BUCKET_NAME = aws_s3_bucket.attachments_bucket.id
       MONGODB_URI = var.mongodb_uri
@@ -519,8 +491,6 @@ resource "aws_iam_role_policy" "lambda_ses_smtp_policy" {
           "s3:DeleteObject"
         ]
         Resource = [
-          "${aws_s3_bucket.kv_database_bucket.arn}",
-          "${aws_s3_bucket.kv_database_bucket.arn}/*",
           "${aws_s3_bucket.attachments_bucket.arn}",
           "${aws_s3_bucket.attachments_bucket.arn}/*"
         ]
