@@ -410,6 +410,23 @@ def lambda_handler(event, context):
                     )
                     verification_attrs = response['VerificationAttributes'].get(domain, {})
                     token = verification_attrs.get('VerificationToken', '')
+                    
+                    # Update verification status in MongoDB
+                    try:
+                        domain_configs.update_one(
+                            {"domain": domain},
+                            {
+                                "$set": {
+                                    "verification_status": status,
+                                    "verification_status_last_checked": datetime.datetime.utcnow()
+                                }
+                            }
+                        )
+                        print(f"Updated verification status for {domain}: {status}")
+                    except PyMongoError as e:
+                        print(f"Error updating verification status in MongoDB: {str(e)}")
+                        # Continue even if MongoDB update fails
+                        
                 except Exception as e:
                     print(f"Error fetching SES data: {str(e)}")
             
@@ -620,6 +637,22 @@ def lambda_handler(event, context):
 
             # Check the current verification status
             status = check_verification_status(user_domain)
+
+            # Update verification status in MongoDB
+            try:
+                domain_configs.update_one(
+                    {"domain": user_domain},
+                    {
+                        "$set": {
+                            "verification_status": status,
+                            "verification_status_last_checked": datetime.datetime.utcnow()
+                        }
+                    }
+                )
+                print(f"Saved initial verification status for {user_domain}: {status}")
+            except PyMongoError as e:
+                print(f"Error saving verification status to MongoDB: {str(e)}")
+                # Continue even if MongoDB update fails
 
             # Get or create SMTP credentials
             # smtp_credentials = create_smtp_user(user_domain)
