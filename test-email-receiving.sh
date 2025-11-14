@@ -47,5 +47,3 @@ done
 
 echo ""
 echo "Test complete!"
-
-
