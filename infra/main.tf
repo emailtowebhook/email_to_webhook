@@ -435,7 +435,7 @@ resource "aws_lambda_function" "parsing_lambda" {
 
   # Use the pre-calculated hash from locals
   source_code_hash = local.parser_lambda_hash
-  timeout = 20
+  timeout = 90
 
   environment {
     variables = {
