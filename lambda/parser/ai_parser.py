@@ -27,6 +27,7 @@ class AIParser:
             Analyze the following email data and extract key entities and intent.
             Return a JSON object with the following schema:
             {
+                "is_image_contain_a_cat": "boolean",
                 "summary": "Brief summary of the email",
                 "intent": "The primary intent of the sender (e.g., 'inquiry', 'complaint', 'purchase')",
                 "sentiment": "sentiment analysis (positive, neutral, negative)",
