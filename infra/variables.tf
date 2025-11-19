@@ -49,9 +49,15 @@ variable "state_bucket_name" {
   default     = ""
 }
 
+variable "gemini_api_key" {
+  description = "API Key for Google Gemini"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
 
-
- 
-
- 
- 
+variable "gemini_model" {
+  description = "Model name for Google Gemini"
+  type        = string
+  default     = "gemini-3-pro-preview"
+}

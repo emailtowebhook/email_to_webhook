@@ -445,6 +445,8 @@ resource "aws_lambda_function" "parsing_lambda" {
       ENVIRONMENT = var.environment
       # Add a marker to track deployments - only changes when code actually changes
       CODE_VERSION = local.parser_lambda_hash
+      GEMINI_API_KEY = var.gemini_api_key
+      GEMINI_MODEL = var.gemini_model
     }
   }
   

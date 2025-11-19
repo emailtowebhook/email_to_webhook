@@ -12,7 +12,7 @@ model ParsedEmail {
   domain       String   // The domain part of the recipient address
   local_part   String   // The local part of the recipient address
   email_id     String   // Full email address identifier
-  is_function_called Boolean @default(false)
+  iFs_function_called Boolean @default(false)
   function_run_id String? // The ID of the function that was called
   function_url String? // The URL of the function to call
   function_response String? // The response from the function

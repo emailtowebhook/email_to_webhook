@@ -17,6 +17,11 @@ import ipaddress
 from urllib.parse import urlparse
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
+try:
+    from ai_parser import AIParser
+except ImportError:
+    print("Could not import AIParser. AI features disabled.")
+    AIParser = None
 
 # Initialize clients
 s3_client = boto3.client('s3')
@@ -434,6 +439,18 @@ def lambda_handler(event, context):
             "html_body": html_body,  # Include HTML body if available (already None if empty)
             "attachments": attachments
         }
+
+        # Integrate AI Parser
+        if AIParser:
+            try:
+                print("=== Starting AI Parsing ===")
+                ai_parser = AIParser()
+                ai_result = ai_parser.parse_email(parsed_email)
+                parsed_email['ai_analysis'] = ai_result
+                print("AI Parsing completed.")
+            except Exception as e:
+                print(f"Error during AI parsing integration: {e}")
+                parsed_email['ai_analysis'] = {"error": str(e)}
 
         # Process webhook URL templates before sending
         webhook_url = process_template(webhook_url, parsed_email)
