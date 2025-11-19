@@ -283,6 +283,7 @@ def lambda_handler(event, context):
         
         # Retrieve webhook URL from MongoDB
         webhook_url = None
+        ai_prompt = None
         try:
             if db is not None and mongodb_uri:
                 # Query MongoDB for domain configuration
@@ -291,6 +292,7 @@ def lambda_handler(event, context):
                 
                 if domain_config and 'webhook' in domain_config:
                     webhook_url = domain_config['webhook']
+                    ai_prompt = domain_config.get('ai_analysis')
                     # SECURITY: Validate webhook URL strictly
                     if not validate_webhook_url(webhook_url):
                         print(f"Blocked unsafe webhook URL: {webhook_url}")
@@ -441,16 +443,20 @@ def lambda_handler(event, context):
         }
 
         # Integrate AI Parser
-        if AIParser:
+        if AIParser and ai_prompt:
             try:
                 print("=== Starting AI Parsing ===")
                 ai_parser = AIParser()
-                ai_result = ai_parser.parse_email(parsed_email)
+                ai_result = ai_parser.parse_email(parsed_email, prompt=ai_prompt)
                 parsed_email['ai_analysis'] = ai_result
                 print("AI Parsing completed.")
             except Exception as e:
                 print(f"Error during AI parsing integration: {e}")
                 parsed_email['ai_analysis'] = {"error": str(e)}
+        elif not ai_prompt:
+            print("Skipping AI parsing: No 'ai_analysis' prompt found in domain config.")
+        else:
+            print("Skipping AI parsing: AIParser not available.")
 
         # Process webhook URL templates before sending
         webhook_url = process_template(webhook_url, parsed_email)
