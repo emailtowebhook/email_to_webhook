@@ -25,6 +25,7 @@ class AIParser:
         self.active_sandboxes = {}
         
         self.s3_client = boto3.client('s3')
+        self.attachments_bucket_name = os.environ.get('ATTACHMENTS_BUCKET_NAME', 'email-attachments-bucket-3rfrd')
         
         if self.api_key:
             self.client = genai.Client(api_key=self.api_key)
@@ -132,6 +133,62 @@ class AIParser:
             print(f"Error executing code in Daytona: {e}")
             return f"Error: {str(e)}"
 
+    def download_from_sandbox_to_s3(self, sandbox_id: str, sandbox_file_path: str) -> str:
+        """
+        Downloads a file from the sandbox, uploads it to S3, and returns the public URL.
+        Useful for retrieving generated files (charts, reports, etc.).
+        """
+        sandbox = self.active_sandboxes.get(sandbox_id)
+        if not sandbox:
+            return f"Sandbox {sandbox_id} not found"
+
+        try:
+            # 1. Download from Sandbox to local /tmp
+            filename = os.path.basename(sandbox_file_path) or f"output_{uuid.uuid4().hex}.bin"
+            local_path = f"/tmp/{filename}"
+            
+            print(f"Downloading {sandbox_file_path} from sandbox {sandbox_id} to {local_path}")
+            
+            # Use Daytona SDK download_file method
+            # Signature: download_file(remote_path: str, local_path: str, timeout: int = 1800) -> None
+            try:
+                sandbox.fs.download_file(sandbox_file_path, local_path)
+            except Exception as e:
+                print(f"Error downloading file from sandbox: {e}")
+                return f"Error downloading file from sandbox: {str(e)}"
+
+            if not os.path.exists(local_path):
+                return f"Error: Failed to download file from sandbox to {local_path}"
+
+            # 2. Upload from local /tmp to S3
+            s3_key = f"ai_generated/{uuid.uuid4().hex}/{filename}"
+            print(f"Uploading {local_path} to S3 bucket {self.attachments_bucket_name} at {s3_key}")
+            
+            # Determine content type based on extension? S3 can auto-detect or we default
+            self.s3_client.upload_file(
+                local_path, 
+                self.attachments_bucket_name, 
+                s3_key,
+                ExtraArgs={'ACL': 'public-read'} # Optional: make public if bucket allows
+            )
+            
+            # 3. Return Public URL
+            # Construct URL (assuming standard S3 public URL format)
+            s3_url = f"https://{self.attachments_bucket_name}.s3.amazonaws.com/{s3_key}"
+            print(f"File uploaded to S3: {s3_url}")
+            
+            # Cleanup local tmp file
+            try:
+                os.remove(local_path)
+            except:
+                pass
+                
+            return s3_url
+
+        except Exception as e:
+            print(f"Error in download_from_sandbox_to_s3: {e}")
+            return f"Error retrieving file: {str(e)}"
+
     def parse_email(self, email_data: Dict[str, Any], prompt: str = None) -> Dict[str, Any]:
         """
         Send email data to Gemini to extract structured information.
@@ -165,7 +222,7 @@ class AIParser:
         # Define tools
         # We expose the tool to the model
         # Replaced download_file_from_s3 with download_file_to_tmp
-        tools = [self.create_sandbox, self.download_file_to_tmp, self.upload_file, self.run_code]
+        tools = [self.create_sandbox, self.download_file_to_tmp, self.upload_file, self.run_code, self.download_from_sandbox_to_s3]
 
         try:
             run_tools = bool(self.daytona_api_key)
@@ -204,6 +261,11 @@ class AIParser:
                             tool_result = self.run_code(
                                 args.get("sandbox_id"), 
                                 args.get("code")
+                            )
+                        elif tool_name == "download_from_sandbox_to_s3":
+                            tool_result = self.download_from_sandbox_to_s3(
+                                args.get("sandbox_id"),
+                                args.get("sandbox_file_path")
                             )
                         
                         # Send result back
