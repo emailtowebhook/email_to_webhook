@@ -82,10 +82,10 @@ class AIParser:
             print(f"Error downloading from URL: {e}")
             return f"Error downloading file: {str(e)}"
 
-    def upload_file(self, sandbox_id: str, destination_path: str, content: str = None, local_file_path: str = None) -> str:
+    def upload_file(self, sandbox_id: str, destination_path: str, local_file_path: str) -> str:
         """
         Uploads a file to the specified sandbox.
-        Can upload either raw 'content' OR a file from 'local_file_path' (e.g. /tmp/...).
+        Can upload ONLY from 'local_file_path' (e.g. /tmp/...).
         """
         sandbox = self.active_sandboxes.get(sandbox_id)
         if not sandbox:
@@ -98,40 +98,11 @@ class AIParser:
                 if not os.path.exists(local_file_path):
                     return f"Error: Local file not found at {local_file_path}"
 
-                # Read local file and upload content
-                # Note: daytona sdk upload_file expects content as string or bytes, or path depending on version.
-                # Based on docs search, we used content string previously. 
-                # For binary files, we might need to read as bytes.
-                # If the SDK supports file path directly, we'd use that. 
-                # Assuming we read and pass content for now to be safe or use native method if it supports path.
-                
-                # Strategy: Read file content locally then upload
-                # Use binary mode for reading to support all file types
-                with open(local_file_path, 'rb') as f:
-                     file_content = f.read()
-                
-                # Ensure destination path is absolute if needed, or relative to default workdir.
-                # If it looks like a relative filename (e.g. "cat.png"), Daytona might expect it to be in a specific dir 
-                # OR the SDK handles it. The error "No such file or directory" usually comes from the RECEIVING end (sandbox)
-                # if a parent dir doesn't exist, OR from the SENDING end (local) if local file doesn't exist.
-                # We added a check for local file above. 
-                # If destination path has directories, they must exist in sandbox.
-                
-                # For binary content, ensure the SDK handles it correctly.
-                try:
-                    # Try passing bytes directly if SDK supports it
-                    sandbox.fs.upload_file(destination_path, file_content)
-                except TypeError:
-                    # Fallback to string decoding if SDK insists on string (mostly for text files)
-                     print("Bytes upload failed, attempting string decode...")
-                     sandbox.fs.upload_file(destination_path, file_content.decode('utf-8', errors='ignore'))
-                     
-            elif content is not None:
-                print(f"Uploading content string to sandbox {sandbox_id} at {destination_path}")
-                sandbox.fs.upload_file(destination_path, content)
-            else:
-                return "Error: Either 'content' or 'local_file_path' must be provided."
+                sandbox.fs.upload_file(local_file_path,destination_path)
 
+            else:
+                return "Error: local_file_path is required"
+                
             return f"File uploaded successfully to {destination_path}"
         except Exception as e:
             print(f"Error uploading file: {e}")
@@ -227,7 +198,6 @@ class AIParser:
                             tool_result = self.upload_file(
                                 args.get("sandbox_id"), 
                                 args.get("destination_path"), 
-                                args.get("content"),
                                 args.get("local_file_path")
                             )
                         elif tool_name == "run_code":
