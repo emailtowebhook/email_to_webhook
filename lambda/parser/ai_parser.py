@@ -94,6 +94,10 @@ class AIParser:
         try:
             if local_file_path:
                 print(f"Uploading local file {local_file_path} to sandbox {sandbox_id} at {destination_path}")
+                
+                if not os.path.exists(local_file_path):
+                    return f"Error: Local file not found at {local_file_path}"
+
                 # Read local file and upload content
                 # Note: daytona sdk upload_file expects content as string or bytes, or path depending on version.
                 # Based on docs search, we used content string previously. 
@@ -106,14 +110,14 @@ class AIParser:
                 with open(local_file_path, 'rb') as f:
                      file_content = f.read()
                 
+                # Ensure destination path is absolute if needed, or relative to default workdir.
+                # If it looks like a relative filename (e.g. "cat.png"), Daytona might expect it to be in a specific dir 
+                # OR the SDK handles it. The error "No such file or directory" usually comes from the RECEIVING end (sandbox)
+                # if a parent dir doesn't exist, OR from the SENDING end (local) if local file doesn't exist.
+                # We added a check for local file above. 
+                # If destination path has directories, they must exist in sandbox.
+                
                 # For binary content, ensure the SDK handles it correctly.
-                # If SDK expects string, we might need to encode or handle text files differently.
-                # Assuming standard usage where SDK handles bytes or string.
-                # If issues arise with binary, we might need to check SDK docs again for binary upload support.
-                # The previous search result example: sandbox.fs.upload_file('/path/to/file', 'file content')
-                # typically implies string content. 
-                # Let's try to decode to string if possible for text files, but for PDFs/Images this will fail.
-                # If the SDK supports bytes, we should pass bytes.
                 try:
                     # Try passing bytes directly if SDK supports it
                     sandbox.fs.upload_file(destination_path, file_content)
