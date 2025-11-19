@@ -485,9 +485,13 @@ def lambda_handler(event, context):
             try:
                 domain_configs = db['domain_configs']
                 
-                # Prepare update data (exclude domain field)
+                # Prepare update data
                 update_data = {k: v for k, v in body.items() if k != 'domain'}
                 update_data['updated_at'] = datetime.datetime.utcnow()
+                
+                # Explicitly handle ai_analysis if provided
+                if 'ai_analysis' in body:
+                    update_data['ai_analysis'] = body['ai_analysis']
                 
                 # Update the document
                 result = domain_configs.update_one(
