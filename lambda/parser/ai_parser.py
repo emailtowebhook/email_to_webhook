@@ -168,8 +168,7 @@ class AIParser:
             self.s3_client.upload_file(
                 local_path, 
                 self.attachments_bucket_name, 
-                s3_key,
-                ExtraArgs={'ACL': 'public-read'} # Optional: make public if bucket allows
+                s3_key
             )
             
             # 3. Return Public URL
