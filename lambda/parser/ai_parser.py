@@ -4,6 +4,9 @@ from google import genai
 from google.genai import types
 from typing import Dict, Any, Optional
 import traceback
+import boto3
+import uuid
+import requests
 
 # Try importing Daytona, handle if not installed/configured to avoid crash on load
 try:
@@ -20,6 +23,8 @@ class AIParser:
         # Default to Gemini 3 (preview) as requested, fallback to 1.5 if needed
         self.model_name = os.environ.get('GEMINI_MODEL', 'gemini-3-pro-preview')
         self.active_sandboxes = {}
+        
+        self.s3_client = boto3.client('s3')
         
         if self.api_key:
             self.client = genai.Client(api_key=self.api_key)
@@ -53,19 +58,77 @@ class AIParser:
             print(f"Error creating sandbox: {e}")
             return f"Error creating sandbox: {str(e)}"
 
-    def upload_file(self, sandbox_id: str, file_path: str, content: str) -> str:
+    def download_file_to_tmp(self, url: str) -> str:
+        """
+        Downloads a file from a URL to the local /tmp directory in Lambda.
+        Returns the local file path.
+        """
+        try:
+            # Create a local filename from URL or generate unique name
+            filename = url.split('/')[-1].split('?')[0] or f"file_{uuid.uuid4().hex}"
+            local_path = f"/tmp/{filename}"
+            
+            print(f"Downloading {url} to {local_path}")
+            
+            response = requests.get(url, stream=True, timeout=30)
+            response.raise_for_status()
+            
+            with open(local_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            
+            return local_path
+        except Exception as e:
+            print(f"Error downloading from URL: {e}")
+            return f"Error downloading file: {str(e)}"
+
+    def upload_file(self, sandbox_id: str, destination_path: str, content: str = None, local_file_path: str = None) -> str:
         """
         Uploads a file to the specified sandbox.
+        Can upload either raw 'content' OR a file from 'local_file_path' (e.g. /tmp/...).
         """
         sandbox = self.active_sandboxes.get(sandbox_id)
         if not sandbox:
             return f"Sandbox {sandbox_id} not found"
             
-        print(f"Uploading file {file_path} to sandbox {sandbox_id}")
         try:
-            # Use Daytona SDK's native upload functionality
-            sandbox.fs.upload_file(file_path, content)
-            return f"File uploaded successfully to {file_path}"
+            if local_file_path:
+                print(f"Uploading local file {local_file_path} to sandbox {sandbox_id} at {destination_path}")
+                # Read local file and upload content
+                # Note: daytona sdk upload_file expects content as string or bytes, or path depending on version.
+                # Based on docs search, we used content string previously. 
+                # For binary files, we might need to read as bytes.
+                # If the SDK supports file path directly, we'd use that. 
+                # Assuming we read and pass content for now to be safe or use native method if it supports path.
+                
+                # Strategy: Read file content locally then upload
+                # Use binary mode for reading to support all file types
+                with open(local_file_path, 'rb') as f:
+                     file_content = f.read()
+                
+                # For binary content, ensure the SDK handles it correctly.
+                # If SDK expects string, we might need to encode or handle text files differently.
+                # Assuming standard usage where SDK handles bytes or string.
+                # If issues arise with binary, we might need to check SDK docs again for binary upload support.
+                # The previous search result example: sandbox.fs.upload_file('/path/to/file', 'file content')
+                # typically implies string content. 
+                # Let's try to decode to string if possible for text files, but for PDFs/Images this will fail.
+                # If the SDK supports bytes, we should pass bytes.
+                try:
+                    # Try passing bytes directly if SDK supports it
+                    sandbox.fs.upload_file(destination_path, file_content)
+                except TypeError:
+                    # Fallback to string decoding if SDK insists on string (mostly for text files)
+                     print("Bytes upload failed, attempting string decode...")
+                     sandbox.fs.upload_file(destination_path, file_content.decode('utf-8', errors='ignore'))
+                     
+            elif content is not None:
+                print(f"Uploading content string to sandbox {sandbox_id} at {destination_path}")
+                sandbox.fs.upload_file(destination_path, content)
+            else:
+                return "Error: Either 'content' or 'local_file_path' must be provided."
+
+            return f"File uploaded successfully to {destination_path}"
         except Exception as e:
             print(f"Error uploading file: {e}")
             return f"Error uploading file: {str(e)}"
@@ -117,9 +180,6 @@ class AIParser:
             }
             """
 
-        # prepare content
-        
-
         full_prompt = f"""
         {prompt}
 
@@ -129,7 +189,8 @@ class AIParser:
 
         # Define tools
         # We expose the tool to the model
-        tools = [self.create_sandbox, self.upload_file, self.run_code]
+        # Replaced download_file_from_s3 with download_file_to_tmp
+        tools = [self.create_sandbox, self.download_file_to_tmp, self.upload_file, self.run_code]
 
         try:
             run_tools = bool(self.daytona_api_key)
@@ -154,11 +215,16 @@ class AIParser:
                         
                         if tool_name == "create_sandbox":
                             tool_result = self.create_sandbox()
+                        elif tool_name == "download_file_to_tmp":
+                            tool_result = self.download_file_to_tmp(
+                                args.get("url")
+                            )
                         elif tool_name == "upload_file":
                             tool_result = self.upload_file(
                                 args.get("sandbox_id"), 
-                                args.get("file_path"), 
-                                args.get("content")
+                                args.get("destination_path"), 
+                                args.get("content"),
+                                args.get("local_file_path")
                             )
                         elif tool_name == "run_code":
                             tool_result = self.run_code(
