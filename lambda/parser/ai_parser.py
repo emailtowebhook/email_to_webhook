@@ -118,19 +118,13 @@ class AIParser:
             """
 
         # prepare content
-        relevant_data = {
-            "subject": email_data.get("subject"),
-            "sender": email_data.get("sender"),
-            "recipient": email_data.get("recipient"),
-            "date": email_data.get("date"),
-            "body": email_data.get("body") or email_data.get("html_body", "")[:5000] 
-        }
+        
 
         full_prompt = f"""
         {prompt}
 
         Email Data:
-        {json.dumps(relevant_data, default=str)}
+        {json.dumps(email_data, default=str)}
         """
 
         # Define tools
