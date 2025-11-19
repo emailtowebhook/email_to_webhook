@@ -447,6 +447,7 @@ resource "aws_lambda_function" "parsing_lambda" {
       CODE_VERSION = local.parser_lambda_hash
       GEMINI_API_KEY = var.gemini_api_key
       GEMINI_MODEL = var.gemini_model
+      DAYTONA_API_KEY = var.daytona_api_key
     }
   }
   

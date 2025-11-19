@@ -3,3 +3,4 @@ requests
 pymongo>=4.0,<5.0
 pystache
 google-genai
+daytona-sdk

@@ -121,7 +121,9 @@ jobs:
             -var="aws_region=$AWS_REGION" \
             -var="state_bucket_name=$STATE_BUCKET" \
             -var="mongodb_uri=${{ secrets.MONGODB_URI }}" \
-            -var="gemini_api_key=${{ secrets.GEMINI_API_KEY }}"
+            -var="gemini_api_key=${{ secrets.GEMINI_API_KEY }}" \
+            -var="daytona_api_key=${{ secrets.DAYTONA_API_KEY }}" \
+            -var="daytona_api_key=${{ secrets.DAYTONA_API_KEY }}"
 
       - name: Terraform Apply
         if: always()
@@ -138,7 +140,8 @@ jobs:
             -var="aws_region=$AWS_REGION" \
             -var="state_bucket_name=$STATE_BUCKET" \
             -var="mongodb_uri=${{ secrets.MONGODB_URI }}" \
-            -var="gemini_api_key=${{ secrets.GEMINI_API_KEY }}"
+            -var="gemini_api_key=${{ secrets.GEMINI_API_KEY }}" \
+            -var="daytona_api_key=${{ secrets.DAYTONA_API_KEY }}"
 
       - name: Clean up Lambda packages
         if: always()

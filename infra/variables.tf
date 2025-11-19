@@ -61,3 +61,10 @@ variable "gemini_model" {
   type        = string
   default     = "gemini-3-pro-preview"
 }
+
+variable "daytona_api_key" {
+  description = "API Key for Daytona"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
