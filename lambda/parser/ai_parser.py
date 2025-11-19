@@ -1,6 +1,6 @@
 import os
 import json
-import google.generativeai as genai
+from google import genai
 from typing import Dict, Any
 
 class AIParser:
@@ -10,7 +10,7 @@ class AIParser:
         self.model_name = os.environ.get('GEMINI_MODEL', 'gemini-3-pro-preview')
         
         if self.api_key:
-            genai.configure(api_key=self.api_key)
+            self.client = genai.Client(api_key=self.api_key)
         else:
             print("Warning: GEMINI_API_KEY not set")
 
@@ -53,12 +53,13 @@ class AIParser:
         """
 
         try:
-            model = genai.GenerativeModel(
-                model_name=self.model_name,
-                generation_config={"response_mime_type": "application/json"}
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=full_prompt,
+                config={
+                    "response_mime_type": "application/json"
+                }
             )
-            
-            response = model.generate_content(full_prompt)
             
             # Parse the response text as JSON
             return json.loads(response.text)
