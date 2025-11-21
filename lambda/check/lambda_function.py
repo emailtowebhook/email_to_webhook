@@ -567,15 +567,6 @@ def lambda_handler(event, context):
                     "body": json.dumps({"error": "Domain is required in the path"})
                 }
             
-            if not webhook:
-                return {
-                    "headers": {
-                    "Content-Type": "application/json"
-                    },
-                    "statusCode": 400,
-                    "body": json.dumps({"error": "Webhook is required"})
-                }
-            
             # Validate domain format
             if not is_valid_domain(user_domain):
                 return {
@@ -586,8 +577,8 @@ def lambda_handler(event, context):
                     "body": json.dumps({"error": "Invalid domain format"})
                 }
             
-            # Validate webhook format
-            if not is_valid_webhook(webhook):
+            # Validate webhook format if provided
+            if webhook and not is_valid_webhook(webhook):
                 return {
                     "headers": {
                     "Content-Type": "application/json"
@@ -613,7 +604,7 @@ def lambda_handler(event, context):
                 # Prepare domain configuration document
                 domain_config = {
                     "domain": user_domain,
-                    "webhook": webhook,
+                    "webhook": webhook, # Can be None
                     "created_at": datetime.datetime.utcnow(),
                     "updated_at": datetime.datetime.utcnow()
                 }
